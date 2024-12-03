@@ -1,30 +1,39 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { LogIn, BookOpen, CheckCircle } from 'lucide-vue-next'
+import { BookOpen, CheckCircle } from 'lucide-vue-next'
+import toastr from '../toastrConfig'
 
 const router = useRouter()
 const authStore = useAuthStore()
-const route = useRoute()
-const showRegisteredMessage = computed(() => route.query.registered === 'true')
 
 const username = ref('')
 const password = ref('')
-const error = ref('')
 
-const handleLogin = async () => {
-  error.value = ''
-  const result = authStore.login(username.value, password.value)
-  
-  if (result === 'success') {
+const validateForm = () => {
+  if (!username.value) {
+    toastr.error('El nombre de usuario es requerido')
+    return false
+  }
+
+  if (!password.value) {
+    toastr.error('La contraseña es requerida')
+    return false
+  }
+
+  return true
+}
+
+const handleSubmit = async () => {
+  if (!validateForm()) return
+
+  try {
+    await authStore.login(username.value, password.value)
+    toastr.success('Inicio de sesión exitoso')
     router.push(authStore.isAdmin ? '/admin' : '/client')
-  } else if (result === 'pending') {
-    error.value = 'Tu cuenta está pendiente de aprobación por un administrador'
-  } else if (result === 'inactive') {
-    error.value = 'Tu cuenta ha sido desactivada'
-  } else {
-    error.value = 'Credenciales inválidas'
+  } catch (error) {
+    toastr.error('Error al iniciar sesión: ' + error.message)
   }
 }
 </script>
@@ -77,7 +86,7 @@ const handleLogin = async () => {
             <h1 class="text-3xl font-bold text-gray-900">Inicia Sesión</h1>
           </div>
           <div class="card shadow-lg p-6">
-            <form @submit.prevent="handleLogin" class="space-y-4">
+            <form @submit.prevent="handleSubmit" class="space-y-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Usuario</label>
                 <input 

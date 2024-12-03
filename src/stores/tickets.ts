@@ -19,67 +19,51 @@ interface TicketResponse {
   createdAt: Date;
 }
 
-export const useTicketStore = defineStore('tickets', () => {
-  const tickets = ref<Ticket[]>([
-    {
-      id: 1,
-      userId: 'client',
-      title: 'Problema Técnico',
-      description: 'Tengo un problema con el sistema',
-      status: 'in-progress',
-      createdAt: new Date('2024-03-12'),
-      responses: []
-    },
-    {
-      id: 2,
-      userId: 'client',
-      title: 'Pregunta de Facturación',
-      description: 'Necesito ayuda con mi factura',
-      status: 'resolved',
-      createdAt: new Date('2024-03-09'),
-      responses: []
-    }
-  ])
+export const useTicketStore = defineStore('tickets', {
+  state: () => ({
+    tickets: [] as Ticket[]
+  }),
 
-  function createTicket(userId: string, title: string, description: string) {
-    const newTicket: Ticket = {
-      id: tickets.value.length + 1,
-      userId,
-      title,
-      description,
-      status: 'open',
-      createdAt: new Date(),
-      responses: []
+  getters: {
+    getTicketsByUser: (state) => (username: string) => {
+      return state.tickets.filter(ticket => ticket.userId === username)
     }
-    tickets.value.push(newTicket)
-    return newTicket
-  }
+  },
 
-  function addResponse(ticketId: number, userId: string, message: string) {
-    const ticket = tickets.value.find(t => t.id === ticketId)
-    if (ticket) {
-      const response: TicketResponse = {
-        id: ticket.responses.length + 1,
-        ticketId,
+  actions: {
+    createTicket(userId: string, title: string, description: string) {
+      const newTicket: Ticket = {
+        id: this.tickets.length + 1,
         userId,
-        message,
-        createdAt: new Date()
+        title,
+        description,
+        status: 'open',
+        createdAt: new Date(),
+        responses: []
       }
-      ticket.responses.push(response)
-    }
-  }
+      this.tickets.push(newTicket)
+      return newTicket
+    },
 
-  function updateTicketStatus(ticketId: number, status: 'open' | 'in-progress' | 'resolved') {
-    const ticket = tickets.value.find(t => t.id === ticketId)
-    if (ticket) {
-      ticket.status = status
-    }
-  }
+    addResponse(ticketId: number, userId: string, message: string) {
+      const ticket = this.tickets.find(t => t.id === ticketId)
+      if (ticket) {
+        const response: TicketResponse = {
+          id: ticket.responses.length + 1,
+          ticketId,
+          userId,
+          message,
+          createdAt: new Date()
+        }
+        ticket.responses.push(response)
+      }
+    },
 
-  return {
-    tickets,
-    createTicket,
-    addResponse,
-    updateTicketStatus
+    updateTicketStatus(ticketId: number, status: 'open' | 'in-progress' | 'resolved') {
+      const ticket = this.tickets.find(t => t.id === ticketId)
+      if (ticket) {
+        ticket.status = status
+      }
+    }
   }
 })

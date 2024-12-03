@@ -41,45 +41,17 @@ const filteredSales = computed(() => {
 
 // Computed para filtrar tickets
 const filteredTickets = computed(() => {
-  const tickets = ticketStore.tickets
-  if (!activeTicketFilter.value) return tickets
-  return tickets.filter(ticket => ticket.status === activeTicketFilter.value)
+  const userTickets = ticketStore.getTicketsByUser(authStore.user?.username || '')
+  if (!activeTicketFilter.value) return userTickets
+  return userTickets.filter(ticket => ticket.status === activeTicketFilter.value)
 })
 
 const handleSaleFilter = (status: string | null) => {
-  activeSaleFilter.value = status
+  activeSaleFilter.value = activeSaleFilter.value === status ? null : status
 }
 
 const handleTicketFilter = (status: string | null) => {
-  activeTicketFilter.value = status
-}
-
-const showModal = ref(false)
-const modalType = ref<'cancel' | 'refund'>('cancel')
-const selectedSale = ref<any>(null)
-
-const showCancelConfirm = (sale: any) => {
-  selectedSale.value = sale
-  modalType.value = 'cancel'
-  showModal.value = true
-}
-
-const showRefundConfirm = (sale: any) => {
-  selectedSale.value = sale
-  modalType.value = 'refund'
-  showModal.value = true
-}
-
-const confirmAction = () => {
-  if (selectedSale.value) {
-    if (modalType.value === 'cancel') {
-      salesStore.cancelSale(selectedSale.value.id)
-    } else {
-      salesStore.refundSale(selectedSale.value.id)
-    }
-    showModal.value = false
-    selectedSale.value = null
-  }
+  activeTicketFilter.value = activeTicketFilter.value === status ? null : status
 }
 </script>
 
@@ -144,11 +116,7 @@ const confirmAction = () => {
                 <button class="btn-primary" @click="activeTab = 'purchases'">Ver todas</button>
               </div>
               <div class="space-y-4">
-                <div v-if="salesStore.getSalesByUser(authStore.user?.username || '').length === 0"
-                     class="text-center py-8 text-gray-500">
-                  <p>Todavía no tienes ventas registradas.</p>
-                </div>
-                <div v-else v-for="sale in salesStore.getSalesByUser(authStore.user?.username || '').slice(0, 5)" 
+                <div v-for="sale in salesStore.getSalesByUser(authStore.user?.username || '').slice(0, 5)" 
                      :key="sale.id"
                      class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
@@ -192,47 +160,19 @@ const confirmAction = () => {
                   @filter="handleSaleFilter"
                 />
               </div>
-              <div class="space-y-4">
-                <div v-if="filteredSales.length === 0" 
-                     class="text-center py-8 text-gray-500">
-                  <p v-if="activeSaleFilter">
-                    No hay ventas con el estado "{{ salesLegend.find(s => s.status === activeSaleFilter)?.label }}"
-                  </p>
-                  <p v-else>
-                    Todavía no tienes ventas registradas.
-                  </p>
-                </div>
-                <div v-else v-for="sale in filteredSales" 
-                     :key="sale.id"
-                     class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+              <div v-if="authStore.userPurchases.length === 0" 
+                   class="text-center py-12 text-gray-500">
+                <p class="text-lg">Todavía no tienes ventas registradas</p>
+                <p class="text-sm mt-2">Las ventas aparecerán aquí una vez que proceses pagos a través de tu TPV virtual.</p>
+              </div>
+              <div v-else class="space-y-4">
+                <div v-for="purchase in authStore.userPurchases" :key="purchase.id"
+                     class="flex items-center justify-between p-4 border rounded-lg">
                   <div>
-                    <div class="font-medium text-gray-900">{{ sale.description }}</div>
-                    <div class="text-sm text-gray-600">
-                      {{ new Date(sale.createdAt).toLocaleDateString() }}
-                      • Ref: {{ sale.reference }}
-                    </div>
+                    <div class="font-medium text-gray-900">{{ purchase.name }}</div>
+                    <div class="text-sm text-gray-600">{{ purchase.date }}</div>
                   </div>
-                  <div class="flex items-center space-x-4">
-                    <div class="flex items-center space-x-2">
-                      <button v-if="salesStore.canCancelSale(sale)"
-                              @click.stop="showCancelConfirm(sale)"
-                              class="text-sm text-red-600 hover:text-red-800">
-                        Cancelar
-                      </button>
-                      <button v-if="salesStore.canRefundSale(sale)"
-                              @click.stop="showRefundConfirm(sale)"
-                              class="text-sm text-purple-600 hover:text-purple-800">
-                        Reembolsar
-                      </button>
-                    </div>
-                    <span :class="['px-2 py-1 text-xs font-medium rounded-full', 
-                                  salesStore.statusClasses[sale.status]]">
-                      {{ salesStore.statusLabels[sale.status] }}
-                    </span>
-                    <div class="text-lg font-medium text-gray-900">
-                      {{ sale.amount.toFixed(2) }}€
-                    </div>
-                  </div>
+                  <div class="text-lg font-medium text-gray-900">{{ purchase.amount }}</div>
                 </div>
               </div>
             </div>
@@ -240,7 +180,15 @@ const confirmAction = () => {
 
           <template v-if="activeTab === 'tickets'">
             <div class="mb-8">
-              <h2 class="text-2xl font-bold text-gray-900">Tickets de Soporte</h2>
+              <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-900">Tickets de Soporte</h2>
+                <button 
+                  @click="showCreateTicket = true"
+                  class="btn-primary flex items-center space-x-2"
+                >
+                  <span>Crear Ticket</span>
+                </button>
+              </div>
             </div>
             <div class="card">
               <div class="mb-4 p-3 bg-gray-50 rounded-lg">
@@ -251,6 +199,27 @@ const confirmAction = () => {
                 />
               </div>
               <TicketList :filtered-tickets="filteredTickets" />
+            </div>
+
+            <!-- Modal de Crear Ticket -->
+            <div v-if="showCreateTicket" 
+                 class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+              <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+                <div class="flex justify-between items-center mb-4">
+                  <h3 class="text-lg font-medium text-gray-900">Crear Nuevo Ticket</h3>
+                  <button 
+                    @click="showCreateTicket = false"
+                    class="text-gray-400 hover:text-gray-500"
+                  >
+                    <span class="sr-only">Cerrar</span>
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <CreateTicket @created="showCreateTicket = false" />
+              </div>
             </div>
           </template>
 
@@ -268,34 +237,4 @@ const confirmAction = () => {
       </div>
     </div>
   </section>
-
-  <!-- Modal simple -->
-  <div v-if="showModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-      <h3 class="text-lg font-medium text-gray-900 mb-4">
-        {{ modalType === 'cancel' ? 'Confirmar Cancelación' : 'Confirmar Reembolso' }}
-      </h3>
-      <p class="text-sm text-gray-500 mb-6">
-        ¿Estás seguro de que quieres {{ modalType === 'cancel' ? 'cancelar' : 'reembolsar' }} 
-        esta venta? Esta acción no se puede deshacer.
-      </p>
-      <div class="flex justify-end space-x-3">
-        <button
-          class="btn-secondary"
-          @click="showModal = false"
-        >
-          No, mantener
-        </button>
-        <button
-          :class="[
-            'btn-primary',
-            modalType === 'cancel' ? 'bg-red-600 hover:bg-red-700' : 'bg-purple-600 hover:bg-purple-700'
-          ]"
-          @click="confirmAction"
-        >
-          Sí, {{ modalType === 'cancel' ? 'cancelar' : 'reembolsar' }}
-        </button>
-      </div>
-    </div>
-  </div>
 </template>

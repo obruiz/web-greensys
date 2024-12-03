@@ -3,15 +3,19 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { Building2, BookOpen } from 'lucide-vue-next'
 import { useAuthStore } from './stores/auth'
+import { useRouter } from 'vue-router'
+import toastr from './toastrConfig'
 
 const route = useRoute()
 const authStore = useAuthStore()
+const router = useRouter()
 
 const showNavbar = computed(() => !route.path.startsWith('/tpv/'))
 
 const handleLogout = () => {
   authStore.logout()
-  router.push('/login')
+  router.push('/')
+  toastr.success('Has cerrado sesión exitosamente')
 }
 </script>
 

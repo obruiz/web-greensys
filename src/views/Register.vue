@@ -2,64 +2,88 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { Building2 } from 'lucide-vue-next'
+import { BookOpen } from 'lucide-vue-next'
+import toastr from '../toastrConfig'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
 const formData = ref({
   username: '',
-  password: '',
   email: '',
-  phone: '',
+  password: '',
+  confirmPassword: '',
   businessName: '',
   legalName: '',
   businessType: '',
   website: '',
   country: 'ES',
-  taxId: '',
-  bankName: '',
-  iban: '',
-  swift: '',
-  createdAt: new Date()
+  taxId: ''
 })
 
 const validateForm = () => {
-  // Validación de email
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-  if (!emailRegex.test(formData.value.email)) {
-    return 'Email inválido'
+  if (!formData.value.username) {
+    toastr.error('El nombre de usuario es requerido')
+    return false
+  }
+  
+  if (!formData.value.email) {
+    toastr.error('El email es requerido')
+    return false
   }
 
-  // Validación de IBAN
-  if (formData.value.iban.length < 15) {
-    return 'IBAN inválido'
+  if (!formData.value.email.includes('@')) {
+    toastr.error('El email no es válido')
+    return false
   }
 
-  // Validación de contraseña
+  if (!formData.value.password) {
+    toastr.error('La contraseña es requerida')
+    return false
+  }
+
   if (formData.value.password.length < 6) {
-    return 'La contraseña debe tener al menos 6 caracteres'
+    toastr.error('La contraseña debe tener al menos 6 caracteres')
+    return false
   }
 
-  return null
+  if (formData.value.password !== formData.value.confirmPassword) {
+    toastr.error('Las contraseñas no coinciden')
+    return false
+  }
+
+  if (!formData.value.businessName) {
+    toastr.error('El nombre del negocio es requerido')
+    return false
+  }
+
+  if (!formData.value.legalName) {
+    toastr.error('El nombre legal es requerido')
+    return false
+  }
+
+  if (!formData.value.businessType) {
+    toastr.error('El tipo de negocio es requerido')
+    return false
+  }
+
+  if (!formData.value.taxId) {
+    toastr.error('El ID fiscal es requerido')
+    return false
+  }
+
+  return true
 }
 
-const handleSubmit = () => {
-  const error = validateForm()
-  if (error) {
-    alert(error)
-    return
-  }
+const handleSubmit = async () => {
+  if (!validateForm()) return
 
-  const success = authStore.register({
-    ...formData.value,
-    password: formData.value.password
-  })
-  
-  if (success) {
-    router.push({
-      path: '/login',
-      query: { registered: 'true' }
-    })
+  try {
+    await authStore.register(formData.value)
+    toastr.success('Registro exitoso')
+    router.push('/login')
+  } catch (error) {
+    toastr.error('Error al registrar: ' + error.message)
   }
 }
 </script>
@@ -68,7 +92,7 @@ const handleSubmit = () => {
   <section class="py-12 bg-white">
     <div class="max-w-3xl mx-auto px-4">
       <div class="text-center mb-8">
-        <Building2 class="h-12 w-12 text-emerald-500 mx-auto mb-4" />
+        <BookOpen class="h-12 w-12 text-emerald-500 mx-auto mb-4" />
         <h1 class="text-3xl font-bold text-gray-900">Crea tu Cuenta GreenSys</h1>
       </div>
       <div class="card">
