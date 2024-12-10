@@ -163,7 +163,7 @@ const runTest = async () => {
               Entorno real para procesar pagos de tus clientes de forma segura.
             </p>
             <div class="bg-gray-100 p-4 rounded-lg">
-              <code class="text-sm">https://back.green-sys.es</code>
+              <code class="text-sm">https://api.green-sys.es</code>
             </div>
             <ul class="mt-4 space-y-2">
               <li class="flex items-center text-gray-600">
@@ -234,7 +234,7 @@ const runTest = async () => {
           <div class="flex items-start justify-between">
             <div>
               <h3 class="text-lg font-medium text-gray-900">
-                POST https://sandbox.green-sys.es/api/v1/payment
+                POST https://sandbox.green-sys.es/payment
               </h3>
               <p class="mt-1 text-gray-600">Crea un nuevo pago y devuelve la URL del TPV</p>
             </div>
@@ -323,7 +323,7 @@ const runTest = async () => {
           <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto">
 import requests
 
-url = "https://sandbox.green-sys.es/api/v1/payment"
+url = "https://sandbox.green-sys.es/payment"
 headers = {
     "Authorization": "Bearer tu_api_key",
     "Content-Type": "application/json"
