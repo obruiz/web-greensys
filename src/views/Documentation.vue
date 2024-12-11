@@ -163,7 +163,7 @@ const runTest = async () => {
               Entorno real para procesar pagos de tus clientes de forma segura.
             </p>
             <div class="bg-gray-100 p-4 rounded-lg">
-              <code class="text-sm">https://api.green-sys.es</code>
+              <code class="text-sm">https://back.green-sys.es</code>
             </div>
             <ul class="mt-4 space-y-2">
               <li class="flex items-center text-gray-600">
@@ -234,7 +234,7 @@ const runTest = async () => {
           <div class="flex items-start justify-between">
             <div>
               <h3 class="text-lg font-medium text-gray-900">
-                POST https://sandbox.green-sys.es/payment
+                POST https://sandbox.green-sys.es/api/v1/payment
               </h3>
               <p class="mt-1 text-gray-600">Crea un nuevo pago y devuelve la URL del TPV</p>
             </div>
@@ -323,7 +323,7 @@ const runTest = async () => {
           <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto">
 import requests
 
-url = "https://sandbox.green-sys.es/payment"
+url = "https://sandbox.green-sys.es/api/v1/payment"
 headers = {
     "Authorization": "Bearer tu_api_key",
     "Content-Type": "application/json"
@@ -344,5 +344,16 @@ else:
         </div>
       </div>
     </div>
+
+    <!-- Botón flotante de contacto -->
+    <a
+      href="mailto:tmgm5@alu.ua.es"
+      class="fixed bottom-8 right-8 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full p-4 shadow-lg flex items-center space-x-2 transition-colors duration-200"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+      <span>Contactar</span>
+    </a>
   </div>
 </template> 

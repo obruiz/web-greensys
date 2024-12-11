@@ -43,7 +43,18 @@ export const useAuthStore = defineStore('auth', () => {
       password: 'client', 
       role: 'client', 
       status: 'active',
-      // ... otros campos requeridos con valores por defecto
+      email: 'cliente@ejemplo.com',
+      phone: '+34 666777888',
+      businessName: 'Empresa Ejemplo SL',
+      legalName: 'Empresa Ejemplo Sociedad Limitada',
+      businessType: 'Comercio Electrónico',
+      website: 'www.ejemplo.com',
+      country: 'España',
+      taxId: 'B12345678',
+      bankName: 'Banco Ejemplo',
+      iban: 'ES1234567890123456789012',
+      swift: 'EXPLES21XXX',
+      createdAt: new Date()
     }
   ])
 
@@ -109,26 +120,38 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const purchases = ref<Purchase[]>([
-    { 
-      id: 1,
-      userId: 'client',
-      name: 'Plan Premium', 
-      date: '14 Mar, 2024', 
-      amount: '$99.00' 
-    },
-    { 
-      id: 2,
-      userId: 'client',
-      name: 'Servicio Adicional', 
-      date: '10 Mar, 2024', 
-      amount: '$29.00' 
-    }
-  ])
+  const purchases = ref<Purchase[]>([])
 
   const userPurchases = computed(() => 
     purchases.value.filter(p => p.userId === user.value?.username)
   )
+
+  function updateUserProfile(userData: Partial<User>) {
+    if (!user.value) return false
+
+    const userToUpdate = registeredUsers.value.find(
+      u => u.username === user.value?.username
+    )
+    
+    if (userToUpdate) {
+      // Actualizar solo los campos permitidos
+      const allowedFields = [
+        'email', 'phone', 'businessName', 'legalName',
+        'businessType', 'website', 'country', 'taxId',
+        'bankName', 'iban', 'swift'
+      ]
+      
+      allowedFields.forEach(field => {
+        if (field in userData) {
+          userToUpdate[field] = userData[field]
+          user.value[field] = userData[field]
+        }
+      })
+      
+      return true
+    }
+    return false
+  }
 
   return {
     user,
@@ -140,6 +163,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     toggleUserStatus,
     userPurchases,
-    isSandboxMode
+    isSandboxMode,
+    updateUserProfile
   }
 })

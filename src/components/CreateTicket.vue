@@ -2,20 +2,23 @@
 import { ref, computed } from 'vue'
 import { useTicketStore } from '../stores/tickets'
 import { useAuthStore } from '../stores/auth'
-import { useUserStore } from '../stores/users'
 import toastr from '../toastrConfig'
 
 const emit = defineEmits(['created'])
 
 const ticketStore = useTicketStore()
 const authStore = useAuthStore()
-const userStore = useUserStore()
 
 const title = ref('')
 const description = ref('')
 const selectedUser = ref('')
 
 const isAdmin = computed(() => authStore.user?.role === 'admin')
+
+// Obtener solo los clientes registrados
+const availableClients = computed(() => 
+  authStore.registeredUsers.filter(user => user.role === 'client')
+)
 
 const validateForm = () => {
   if (!title.value.trim()) {
@@ -66,7 +69,7 @@ const handleSubmit = () => {
       <label for="user" class="block text-sm font-medium text-gray-700">Seleccionar Cliente</label>
       <select v-model="selectedUser" id="user" class="input-field mt-1">
         <option value="" disabled>Seleccione un cliente</option>
-        <option v-for="user in userStore.users" :key="user.username" :value="user.username">
+        <option v-for="user in availableClients" :key="user.username" :value="user.username">
           {{ user.username }}
         </option>
       </select>

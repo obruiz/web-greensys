@@ -1,45 +1,30 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-
-export type SaleStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'cancelled'
+import { useCommissionStore } from './commissions'
 
 interface Sale {
-  id: string;
+  id: number;
   userId: string;
   amount: number;
   description: string;
   reference: string;
-  status: SaleStatus;
+  status: 'pending' | 'paid' | 'failed' | 'refunded' | 'cancelled';
+  paymentMethod: string;
   createdAt: Date;
-  updatedAt: Date;
-  paymentMethod?: string;
-  metadata?: {
-    customerEmail?: string;
-    customerName?: string;
-    [key: string]: any;
+  metadata?: Record<string, any>;
+  commission: {
+    percentage: number;
+    amount: number;
+    total: number;
   };
 }
 
 export const useSalesStore = defineStore('sales', () => {
-  const sales = ref<Sale[]>([
-    {
-      id: '1',
-      userId: 'client',
-      amount: 99.99,
-      description: 'Plan Premium',
-      reference: 'SALE-001',
-      status: 'paid',
-      createdAt: new Date('2024-03-14'),
-      updatedAt: new Date('2024-03-14'),
-      paymentMethod: 'card',
-      metadata: {
-        customerEmail: 'cliente@ejemplo.com',
-        customerName: 'Cliente Ejemplo'
-      }
-    }
-  ])
+  const sales = ref<Sale[]>([])
+  let nextId = 1
 
-  const statusLabels: Record<SaleStatus, string> = {
+  // Etiquetas de estado en español
+  const statusLabels = {
     pending: 'Pendiente de pago',
     paid: 'Pagada',
     failed: 'Fallida',
@@ -47,7 +32,8 @@ export const useSalesStore = defineStore('sales', () => {
     cancelled: 'Cancelada'
   }
 
-  const statusClasses: Record<SaleStatus, string> = {
+  // Clases de estilo para cada estado
+  const statusClasses = {
     pending: 'bg-yellow-50 text-yellow-700',
     paid: 'bg-emerald-50 text-emerald-700',
     failed: 'bg-red-50 text-red-700',
@@ -55,59 +41,59 @@ export const useSalesStore = defineStore('sales', () => {
     cancelled: 'bg-gray-50 text-gray-700'
   }
 
-  function createSale(saleData: Omit<Sale, 'id' | 'createdAt' | 'updatedAt'>) {
-    const newSale: Sale = {
-      id: `SALE-${sales.value.length + 1}`,
+  const createSale = (saleData: Omit<Sale, 'id' | 'createdAt' | 'commission'>) => {
+    const commissionStore = useCommissionStore()
+    const rate = commissionStore.commissionRates.standard // Por defecto usamos la tarifa estándar
+
+    const commission = commissionStore.calculateCommission(saleData.amount, rate)
+    
+    const sale: Sale = {
+      id: nextId++,
       createdAt: new Date(),
-      updatedAt: new Date(),
+      commission,
       ...saleData
     }
-    sales.value.push(newSale)
-    return newSale
+    sales.value.push(sale)
+    return sale
   }
 
-  function updateSaleStatus(saleId: string, status: SaleStatus) {
-    const sale = sales.value.find(s => s.id === saleId)
-    if (sale) {
-      sale.status = status
-      sale.updatedAt = new Date()
-    }
-  }
-
-  function getSalesByUser(userId: string) {
+  const getSalesByUser = (userId: string) => {
     return sales.value.filter(sale => sale.userId === userId)
   }
 
-  function getSaleByReference(reference: string) {
-    return sales.value.find(sale => sale.reference === reference)
-  }
-
-  // Función para comprobar si una venta puede ser cancelada
-  function canCancelSale(sale: Sale) {
-    return sale.status === 'pending'
-  }
-
-  // Función para comprobar si una venta puede ser reembolsada
-  function canRefundSale(sale: Sale) {
-    return sale.status === 'paid'
-  }
-
-  // Función para cancelar una venta
-  function cancelSale(saleId: string) {
+  const updateSaleStatus = (saleId: number, newStatus: Sale['status']) => {
     const sale = sales.value.find(s => s.id === saleId)
-    if (sale && canCancelSale(sale)) {
-      sale.status = 'cancelled'
-      sale.updatedAt = new Date()
+    if (sale) {
+      sale.status = newStatus
     }
   }
 
-  // Función para reembolsar una venta
-  function refundSale(saleId: string) {
-    const sale = sales.value.find(s => s.id === saleId)
-    if (sale && canRefundSale(sale)) {
-      sale.status = 'refunded'
-      sale.updatedAt = new Date()
-    }
+  // Para desarrollo, crear algunas ventas de ejemplo
+  if (process.env.NODE_ENV === 'development') {
+    createSale({
+      userId: 'client',
+      amount: 99.99,
+      description: 'Plan Premium',
+      reference: 'REF-001',
+      status: 'paid',
+      paymentMethod: 'card'
+    })
+    createSale({
+      userId: 'client',
+      amount: 49.99,
+      description: 'Plan Básico',
+      reference: 'REF-002',
+      status: 'pending',
+      paymentMethod: 'card'
+    })
+    createSale({
+      userId: 'client',
+      amount: 29.99,
+      description: 'Servicio Adicional',
+      reference: 'REF-003',
+      status: 'failed',
+      paymentMethod: 'card'
+    })
   }
 
   return {
@@ -115,12 +101,7 @@ export const useSalesStore = defineStore('sales', () => {
     statusLabels,
     statusClasses,
     createSale,
-    updateSaleStatus,
     getSalesByUser,
-    getSaleByReference,
-    canCancelSale,
-    canRefundSale,
-    cancelSale,
-    refundSale
+    updateSaleStatus
   }
 }) 

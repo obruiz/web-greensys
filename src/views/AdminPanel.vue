@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { LayoutDashboard, Users, TicketCheck } from 'lucide-vue-next'
 import TicketList from '../components/TicketList.vue'
 import CreateTicket from '../components/CreateTicket.vue'
 import StatusLegend from '../components/StatusLegend.vue'
 import { useTicketStore } from '../stores/tickets'
 import { useAuthStore } from '../stores/auth'
+import axios from 'axios'
 
 const activeTab = ref('dashboard')
 const showCreateTicket = ref(false)
@@ -21,11 +22,31 @@ const toggleUserStatus = (username: string) => {
   authStore.toggleUserStatus(username)
 }
 
-const stats = [
-  { label: 'Clientes Totales', value: '2,543', change: '↑ 12%' },
-  { label: 'Tickets Activos', value: '128', change: '↓ 8%' },
-  { label: 'Ingresos', value: '$45,231', change: '↑ 23%' }
-]
+const stats = ref([
+  { label: 'Clientes Totales', value: '0', change: '0%' },
+  { label: 'Tickets Activos', value: '0', change: '0%' },
+  { label: 'Ingresos Totales', value: '0€', change: '0%' },
+  { label: 'Comisiones Totales', value: '0€', change: '0%' }
+])
+
+const fetchStats = async () => {
+  try {
+    const response = await axios.get('/api/stats')
+    const data = response.data
+    stats.value = [
+      { label: 'Clientes Totales', value: data.totalClients, change: data.clientChange },
+      { label: 'Tickets Activos', value: data.activeTickets, change: data.ticketChange },
+      { label: 'Ingresos Netos', value: `€${calculateNetRevenue.value.toFixed(2)}`, change: data.revenueChange },
+      { label: 'Comisiones Totales', value: `${calculateTotalCommissions.value.toFixed(2)}€`, change: '0%' }
+    ]
+  } catch (error) {
+    console.error('Error al obtener las estadísticas:', error)
+  }
+}
+
+onMounted(() => {
+  fetchStats()
+})
 
 const selectedUser = ref(null)
 const showModal = ref(false)
@@ -57,6 +78,24 @@ const filteredTickets = computed(() => {
 const handleTicketFilter = (status: string | null) => {
   activeTicketFilter.value = activeTicketFilter.value === status ? null : status
 }
+
+const calculateTotalCommissions = computed(() => {
+  return salesStore.sales.reduce((total, sale) => {
+    if (sale.status === 'paid') {
+      return total + sale.commission.amount
+    }
+    return total
+  }, 0)
+})
+
+const calculateNetRevenue = computed(() => {
+  return salesStore.sales.reduce((total, sale) => {
+    if (sale.status === 'paid') {
+      return total + sale.commission.total
+    }
+    return total
+  }, 0)
+})
 </script>
 
 <template>
@@ -103,7 +142,7 @@ const handleTicketFilter = (status: string | null) => {
               <h2 class="text-2xl font-bold text-gray-900">Panel de Administración</h2>
             </div>
 
-            <div class="grid grid-cols-3 gap-6 mb-8">
+            <div class="grid grid-cols-4 gap-6 mb-8">
               <div v-for="stat in stats" :key="stat.label" class="card">
                 <div class="text-sm font-medium text-gray-600">{{ stat.label }}</div>
                 <div class="mt-2 text-3xl font-bold text-gray-900">{{ stat.value }}</div>
@@ -183,9 +222,8 @@ const handleTicketFilter = (status: string | null) => {
                       <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
                       <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Negocio</th>
                       <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contacto</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Datos Bancarios</th>
                       <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-48">Acciones</th>
                     </tr>
                   </thead>
                   <tbody class="bg-white divide-y divide-gray-200">
@@ -206,13 +244,6 @@ const handleTicketFilter = (status: string | null) => {
                           <div>{{ user.phone }}</div>
                           <div>{{ user.email }}</div>
                           <div class="text-gray-500">{{ user.website || 'N/A' }}</div>
-                        </div>
-                      </td>
-                      <td class="px-6 py-4">
-                        <div class="text-sm">
-                          <div>{{ user.bankName }}</div>
-                          <div class="text-gray-500">IBAN: {{ user.iban }}</div>
-                          <div class="text-gray-500">SWIFT: {{ user.swift }}</div>
                         </div>
                       </td>
                       <td class="px-6 py-4">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { LayoutDashboard, CreditCard, TicketCheck, Key, Switch } from 'lucide-vue-next'
+import { LayoutDashboard, CreditCard, TicketCheck, Key, Switch, Receipt, Download, FileSpreadsheet } from 'lucide-vue-next'
 import TicketList from '../components/TicketList.vue'
 import CreateTicket from '../components/CreateTicket.vue'
 import ApiKeyManager from '../components/ApiKeyManager.vue'
@@ -53,6 +53,67 @@ const handleSaleFilter = (status: string | null) => {
 const handleTicketFilter = (status: string | null) => {
   activeTicketFilter.value = activeTicketFilter.value === status ? null : status
 }
+
+const getInvoiceMonths = () => {
+  const months: { id: string; label: string; total: number }[] = []
+  const sales = salesStore.getSalesByUser(authStore.user?.username || '')
+  
+  // Agrupar ventas por mes
+  const salesByMonth = sales.reduce((acc, sale) => {
+    if (sale.status === 'paid') {
+      const date = new Date(sale.createdAt)
+      const monthId = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+      if (!acc[monthId]) {
+        acc[monthId] = {
+          total: 0,
+          label: new Date(date.getFullYear(), date.getMonth()).toLocaleDateString('es', {
+            month: 'long',
+            year: 'numeric'
+          })
+        }
+      }
+      acc[monthId].total += sale.commission.amount
+    }
+    return acc
+  }, {} as Record<string, { total: number; label: string }>)
+  
+  // Convertir a array y ordenar por fecha descendente
+  Object.entries(salesByMonth).forEach(([id, data]) => {
+    months.push({ id, ...data })
+  })
+  
+  return months.sort((a, b) => b.id.localeCompare(a.id))
+}
+
+const downloadInvoice = async (monthId: string) => {
+  try {
+    // Aquí iría la lógica para generar y descargar el PDF
+    const response = await fetch(`/api/invoices/${monthId}/pdf`)
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `factura-${monthId}.pdf`
+    a.click()
+  } catch (error) {
+    console.error('Error al descargar la factura:', error)
+  }
+}
+
+const downloadInvoiceXLS = async (monthId: string) => {
+  try {
+    // Aquí iría la lógica para generar y descargar el XLS
+    const response = await fetch(`/api/invoices/${monthId}/xls`)
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `factura-${monthId}.xlsx`
+    a.click()
+  } catch (error) {
+    console.error('Error al descargar la factura:', error)
+  }
+}
 </script>
 
 <template>
@@ -98,6 +159,15 @@ const handleTicketFilter = (status: string | null) => {
               <Key class="h-5 w-5 mr-3" />
               API Keys
             </a>
+            <a 
+              href="#" 
+              @click.prevent="activeTab = 'invoices'"
+              :class="['flex items-center px-4 py-2 text-sm font-medium rounded-lg',
+                activeTab === 'invoices' ? 'text-emerald-500 bg-emerald-50' : 'text-gray-600 hover:bg-gray-50']"
+            >
+              <Receipt class="h-5 w-5 mr-3" />
+              Facturas
+            </a>
           </nav>
         </div>
 
@@ -125,14 +195,22 @@ const handleTicketFilter = (status: string | null) => {
                       {{ new Date(sale.createdAt).toLocaleDateString() }}
                       • Ref: {{ sale.reference }}
                     </div>
+                    <div class="text-xs text-gray-500">
+                      Comisión: {{ sale.commission.percentage }}% ({{ sale.commission.amount.toFixed(2) }}€)
+                    </div>
                   </div>
                   <div class="flex items-center space-x-4">
                     <span :class="['px-2 py-1 text-xs font-medium rounded-full', 
                                   salesStore.statusClasses[sale.status]]">
                       {{ salesStore.statusLabels[sale.status] }}
                     </span>
-                    <div class="text-lg font-medium text-gray-900">
-                      {{ sale.amount.toFixed(2) }}€
+                    <div class="text-right">
+                      <div class="text-lg font-medium text-gray-900">
+                        {{ sale.amount.toFixed(2) }}€
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        Neto: {{ sale.commission.total.toFixed(2) }}€
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -160,19 +238,37 @@ const handleTicketFilter = (status: string | null) => {
                   @filter="handleSaleFilter"
                 />
               </div>
-              <div v-if="authStore.userPurchases.length === 0" 
+              <div v-if="filteredSales.length === 0" 
                    class="text-center py-12 text-gray-500">
                 <p class="text-lg">Todavía no tienes ventas registradas</p>
                 <p class="text-sm mt-2">Las ventas aparecerán aquí una vez que proceses pagos a través de tu TPV virtual.</p>
               </div>
               <div v-else class="space-y-4">
-                <div v-for="purchase in authStore.userPurchases" :key="purchase.id"
+                <div v-for="sale in filteredSales" :key="sale.id"
                      class="flex items-center justify-between p-4 border rounded-lg">
                   <div>
-                    <div class="font-medium text-gray-900">{{ purchase.name }}</div>
-                    <div class="text-sm text-gray-600">{{ purchase.date }}</div>
+                    <div class="font-medium text-gray-900">{{ sale.description }}</div>
+                    <div class="text-sm text-gray-600">
+                      {{ new Date(sale.createdAt).toLocaleDateString() }}
+                      • Ref: {{ sale.reference }}
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      Comisión: {{ sale.commission.percentage }}% ({{ sale.commission.amount.toFixed(2) }}€)
+                    </div>
                   </div>
-                  <div class="text-lg font-medium text-gray-900">{{ purchase.amount }}</div>
+                  <div class="flex items-center space-x-4">
+                    <span :class="['px-2 py-1 text-xs font-medium rounded-full', salesStore.statusClasses[sale.status]]">
+                      {{ salesStore.statusLabels[sale.status] }}
+                    </span>
+                    <div class="text-right">
+                      <div class="text-lg font-medium text-gray-900">
+                        {{ sale.amount.toFixed(2) }}€
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        Neto: {{ sale.commission.total.toFixed(2) }}€
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -231,6 +327,49 @@ const handleTicketFilter = (status: string | null) => {
             </div>
             <div class="card">
               <ApiKeyManager />
+            </div>
+          </template>
+
+          <template v-if="activeTab === 'invoices'">
+            <div class="mb-8">
+              <h2 class="text-2xl font-bold text-gray-900">Facturas de Comisiones</h2>
+            </div>
+            <div class="card">
+              <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+                <div class="text-sm text-gray-600">
+                  Aquí puedes descargar las facturas de las comisiones cobradas por nuestro servicio.
+                </div>
+              </div>
+              
+              <div class="space-y-4">
+                <div v-for="month in getInvoiceMonths()" :key="month.id"
+                     class="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <div class="font-medium text-gray-900">
+                      Factura {{ month.label }}
+                    </div>
+                    <div class="text-sm text-gray-600">
+                      Total comisiones: {{ month.total.toFixed(2) }}€
+                    </div>
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <button 
+                      @click="downloadInvoice(month.id)"
+                      class="btn-secondary flex items-center space-x-2"
+                    >
+                      <Download class="h-4 w-4" />
+                      <span>PDF</span>
+                    </button>
+                    <button 
+                      @click="downloadInvoiceXLS(month.id)"
+                      class="btn-secondary flex items-center space-x-2"
+                    >
+                      <FileSpreadsheet class="h-4 w-4" />
+                      <span>XLS</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </template>
         </div>

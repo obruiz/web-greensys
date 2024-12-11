@@ -43,7 +43,15 @@ const handleLogout = () => {
               >
                 Panel
               </router-link>
-              <button @click="handleLogout" class="btn-primary">Cerrar Sesión</button>
+              <router-link 
+                to="/profile" 
+                class="btn-secondary"
+              >
+                Mi Perfil
+              </router-link>
+              <button @click="handleLogout" class="btn-primary">
+                Cerrar Sesión
+              </button>
             </template>
           </div>
         </div>
