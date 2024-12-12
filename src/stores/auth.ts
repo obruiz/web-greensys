@@ -212,6 +212,28 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function updateProfile(profileData: Partial<User>) {
+    try {
+      if (!token.value) return false
+
+      const response = await axios.put('https://api.green-sys.es/profile', profileData, {
+        headers: {
+          Authorization: `Bearer ${token.value}`
+        }
+      })
+
+      if (response.data.success && user.value) {
+        Object.assign(user.value, profileData)
+        return true
+      }
+
+      return false
+    } catch (error) {
+      console.error('Error al actualizar el perfil:', error)
+      return false
+    }
+  }
+
   return {
     user,
     token,
@@ -223,6 +245,7 @@ export const useAuthStore = defineStore('auth', () => {
     isSandboxMode,
     login,
     logout,
-    getProfile
+    getProfile,
+    updateProfile
   }
 }) 
