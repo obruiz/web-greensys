@@ -1,36 +1,38 @@
 <script setup lang="ts">
+interface LegendItem {
+  status: string
+  label: string
+  class: string
+}
+
 defineProps<{
-  items: {
-    status: string;
-    label: string;
-    class: string;
-  }[];
-  activeFilter?: string;
+  items: LegendItem[]
+  activeFilter?: string
 }>()
 
-defineEmits<{
-  (e: 'filter', status: string | undefined): void;
+const emit = defineEmits<{
+  (e: 'filter', status: string | undefined): void
 }>()
+
+const handleClick = (status: string) => {
+  if (status === props.activeFilter) {
+    emit('filter', undefined)
+  } else {
+    emit('filter', status)
+  }
+}
 </script>
 
 <template>
   <div class="flex items-center space-x-4">
-    <button 
-      @click="$emit('filter', undefined)"
-      :class="[
-        'px-2 py-1 text-xs font-medium rounded-full',
-        !activeFilter ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
-      ]"
-    >
-      Todos
-    </button>
-    <button 
-      v-for="item in items" 
+    <button
+      v-for="item in items"
       :key="item.status"
-      @click="$emit('filter', item.status)"
+      @click="handleClick(item.status)"
       :class="[
-        'px-2 py-1 text-xs font-medium rounded-full',
-        activeFilter === item.status ? item.class : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+        'px-3 py-1 rounded-full text-sm font-medium',
+        item.class,
+        activeFilter === item.status ? 'ring-2 ring-offset-2 ring-emerald-500' : ''
       ]"
     >
       {{ item.label }}
