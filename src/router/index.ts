@@ -12,7 +12,20 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: () => import('../views/Login.vue')
+      component: () => import('../views/Login.vue'),
+      meta: { requiresGuest: true }
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('../views/Register.vue'),
+      meta: { requiresGuest: true }
+    },
+    {
+      path: '/profile',
+      name: 'profile',
+      component: () => import('../views/Profile.vue'),
+      meta: { requiresAuth: true }
     },
     {
       path: '/admin',
@@ -24,14 +37,18 @@ const router = createRouter({
       path: '/client',
       name: 'client',
       component: () => import('../views/ClientPanel.vue'),
-      meta: { requiresAuth: true }
+      meta: { requiresAuth: true, requiresClient: true }
     },
+    // Redirecciones
     {
-      path: '/profile',
-      name: 'profile',
-      component: () => import('../views/Profile.vue'),
+      path: '/dashboard',
+      redirect: to => {
+        const authStore = useAuthStore()
+        return authStore.user?.role === 'admin' ? '/admin' : '/client'
+      },
       meta: { requiresAuth: true }
     },
+    // Ruta 404
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
@@ -40,15 +57,37 @@ const router = createRouter({
   ]
 })
 
-router.beforeEach((to, from, next) => {
+// Guardia de navegación global
+router.beforeEach(async (to, from) => {
   const authStore = useAuthStore()
-  
+
+  // Verificar si la ruta requiere autenticación
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    next('/login')
-  } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    next('/client')
-  } else {
-    next()
+    return {
+      name: 'login',
+      query: { redirect: to.fullPath }
+    }
+  }
+
+  // Verificar si la ruta requiere ser invitado (no autenticado)
+  if (to.meta.requiresGuest && authStore.isAuthenticated) {
+    return {
+      name: 'dashboard'
+    }
+  }
+
+  // Verificar si la ruta requiere rol de administrador
+  if (to.meta.requiresAdmin && authStore.user?.role !== 'admin') {
+    return {
+      name: 'not-found'
+    }
+  }
+
+  // Verificar si la ruta requiere rol de cliente
+  if (to.meta.requiresClient && authStore.user?.role !== 'client') {
+    return {
+      name: 'not-found'
+    }
   }
 })
 
