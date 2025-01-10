@@ -52,7 +52,7 @@ const runTest = async () => {
     const response = await fetch('https://sandbox.green-sys.es/sales', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${testApiKey.value}`,
+        'x-api-key': `${testApiKey.value}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
@@ -88,7 +88,7 @@ const runTest = async () => {
       <div class="max-w-7xl mx-auto px-4">
         <nav class="flex space-x-8">
           <button 
-            v-for="tab in ['introduction', 'authentication', 'endpoints', 'testing']"
+            v-for="tab in ['introduction', 'authentication', 'endpoint', 'cards', 'testing']"
             :key="tab"
             @click="activeTab = tab"
             :class="[
@@ -143,7 +143,7 @@ const runTest = async () => {
               sin costo alguno.
             </p>
             <div class="bg-gray-100 p-4 rounded-lg">
-              <code class="text-sm">https://sandbox.green-sys.es</code>
+              <code class="text-sm">https://sandbox.green-sys.es/sales</code>
             </div>
             <ul class="mt-4 space-y-2">
               <li class="flex items-center text-gray-600">
@@ -161,9 +161,10 @@ const runTest = async () => {
             <h3 class="text-xl font-bold text-gray-900 mb-4">Producción</h3>
             <p class="text-gray-600 mb-4">
               Entorno real para procesar pagos de tus clientes de forma segura.
+              Certificación PCI DSS para máxima seguridad.
             </p>
             <div class="bg-gray-100 p-4 rounded-lg">
-              <code class="text-sm">https://api.green-sys.es</code>
+              <code class="text-sm">https://api.green-sys.es/sales</code>
             </div>
             <ul class="mt-4 space-y-2">
               <li class="flex items-center text-gray-600">
@@ -188,11 +189,11 @@ const runTest = async () => {
           <div class="card p-6 mb-12">
             <h3 class="text-lg font-medium text-gray-900 mb-4">Headers de Autenticación</h3>
             <p class="text-gray-600 mb-4">
-              Todas las peticiones a la API deben incluir tu API key en el header <code>Authorization</code>.
+              Todas las peticiones a la API deben incluir tu API key en el header <code>x-api-key</code>.
               Las API keys son únicas y no deben compartirse.
             </p>
             <div class="bg-gray-800 text-gray-200 p-4 rounded-lg font-mono text-sm">
-              Authorization: Bearer tu_api_key
+              x-api-key: tu_api_key
             </div>
           </div>
 
@@ -228,8 +229,8 @@ const runTest = async () => {
         </div>
       </div>
 
-      <!-- Endpoints -->
-      <div v-else-if="activeTab === 'endpoints'" class="space-y-8">
+      <!-- Endpoint -->
+      <div v-else-if="activeTab === 'endpoint'" class="space-y-8">
         <div class="card">
           <div class="flex items-start justify-between">
             <div>
@@ -255,15 +256,131 @@ const runTest = async () => {
 }</pre>
           </div>
 
-          <div class="mt-4">
-            <h4 class="text-sm font-medium text-gray-900 mb-2">Respuesta:</h4>
-            <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto">
+          <div class="mt-6">
+            <h4 class="text-sm font-medium text-gray-900 mb-2">Respuestas:</h4>
+            
+            <div class="space-y-4">
+              <!-- 201 -->
+              <div class="border border-emerald-200 rounded-lg overflow-hidden">
+                <div class="bg-emerald-50 px-4 py-2 border-b border-emerald-200">
+                  <span class="text-sm font-medium text-emerald-800">201 - Venta creada exitosamente</span>
+                </div>
+                <div class="p-4">
+                  <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto">
 {
-  "success": true,
-  "data": {
-    "paymentUrl": "https://api.green-sys.es/tpv/abc123..."
-  }
+  "url": "https://green-sys.es/tpv/795d0a7f-2aca..."
 }</pre>
+                </div>
+              </div>
+
+              <!-- Nota de expiración -->
+              <div class="border border-yellow-200 rounded-lg overflow-hidden">
+                <div class="bg-yellow-50 px-4 py-2 border-b border-yellow-200">
+                  <div class="flex items-center space-x-2">
+                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    <span class="text-sm font-medium text-yellow-800">
+                      Los enlaces de pago expiran después de 15 minutos y la venta pasará al estado "failure"
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 400 -->
+              <div class="border border-red-200 rounded-lg overflow-hidden">
+                <div class="bg-red-50 px-4 py-2 border-b border-red-200">
+                  <span class="text-sm font-medium text-red-800">400 - Datos incompletos o referencia duplicada</span>
+                </div>
+              </div>
+
+              <!-- 401 -->
+              <div class="border border-red-200 rounded-lg overflow-hidden">
+                <div class="bg-red-50 px-4 py-2 border-b border-red-200">
+                  <span class="text-sm font-medium text-red-800">401 - Falta la API Key o la API Key es inválida</span>
+                </div>
+              </div>
+
+              <!-- 500 -->
+              <div class="border border-red-200 rounded-lg overflow-hidden">
+                <div class="bg-red-50 px-4 py-2 border-b border-red-200">
+                  <span class="text-sm font-medium text-red-800">500 - Error interno del servidor</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cards -->
+      <div v-else-if="activeTab === 'cards'" class="space-y-8">
+        <div class="card">
+          <h3 class="text-lg font-medium text-gray-900 mb-4">
+            Tarjetas de Prueba
+          </h3>
+          <p class="text-gray-600 mb-6">
+            Utiliza estas tarjetas para realizar pruebas en el entorno sandbox. Cualquier otra tarjeta será rechazada.
+          </p>
+          
+          <div class="space-y-6">
+            <!-- Visa -->
+            <div class="border border-gray-200 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-4">
+                <span class="text-lg font-medium text-gray-900">Visa</span>
+                <span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">Test Card</span>
+              </div>
+              <div class="space-y-2">
+                <div class="grid grid-cols-3 gap-4">
+                  <div>
+                    <span class="text-sm text-gray-500">Número</span>
+                    <div class="font-mono text-gray-900">4111 1111 1111 1111</div>
+                  </div>
+                  <div>
+                    <span class="text-sm text-gray-500">CVV</span>
+                    <div class="font-mono text-gray-900">123</div>
+                  </div>
+                  <div>
+                    <span class="text-sm text-gray-500">Expiración</span>
+                    <div class="font-mono text-gray-900">12/25</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mastercard -->
+            <div class="border border-gray-200 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-4">
+                <span class="text-lg font-medium text-gray-900">Mastercard</span>
+                <span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">Test Card</span>
+              </div>
+              <div class="space-y-2">
+                <div class="grid grid-cols-3 gap-4">
+                  <div>
+                    <span class="text-sm text-gray-500">Número</span>
+                    <div class="font-mono text-gray-900">5500 0000 0000 0004</div>
+                  </div>
+                  <div>
+                    <span class="text-sm text-gray-500">CVV</span>
+                    <div class="font-mono text-gray-900">456</div>
+                  </div>
+                  <div>
+                    <span class="text-sm text-gray-500">Expiración</span>
+                    <div class="font-mono text-gray-900">11/26</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div class="flex items-center space-x-2">
+                <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-sm text-yellow-800">
+                  Cualquier otra tarjeta será rechazada.
+                </span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

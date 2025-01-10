@@ -15,6 +15,8 @@ import toastr from '../toastrConfig'
 
 const activeTab = ref('dashboard')
 const showCreateTicket = ref(false)
+const currentPage = ref(1)
+const itemsPerPage = 5
 const authStore = useAuthStore()
 const salesStore = useSalesStore()
 const ticketStore = useTicketStore()
@@ -65,6 +67,31 @@ const filteredTickets = computed(() => {
   const tickets = ticketStore.getMyTickets
   if (!activeTicketFilter.value) return tickets
   return tickets.filter(ticket => ticket.status === activeTicketFilter.value)
+})
+
+const paginatedSales = computed(() => {
+  const start = (currentPage.value - 1) * itemsPerPage
+  const end = start + itemsPerPage
+  return filteredSales.value.slice(start, end)
+})
+
+const totalPages = computed(() => Math.ceil(filteredSales.value.length / itemsPerPage))
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+  }
+}
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+  }
+}
+
+// Reset página cuando cambie el filtro
+watch(activeSaleFilter, () => {
+  currentPage.value = 1
 })
 
 // Cargar tickets y ventas al montar el componente
@@ -118,6 +145,31 @@ async function loadInvoices() {
   const success = await invoiceStore.fetchInvoices()
   if (!success && invoiceStore.lastError) {
     toastr.error(invoiceStore.lastError.message)
+  }
+}
+
+const calculateCommission = (amount: number) => {
+  // Tarifa europea: 1.4% + 0.25€
+  const percentage = 1.4
+  const fixed = 0.25
+  return {
+    percentage,
+    fixed,
+    total: (amount * (percentage / 100)) + fixed
+  }
+}
+
+const handleRefund = async (saleId: number) => {
+  try {
+    const success = await salesStore.refundSale(saleId)
+    if (success) {
+      toastr.success('Venta reembolsada correctamente')
+    } else if (salesStore.lastError) {
+      toastr.error(salesStore.lastError.message)
+    }
+  } catch (error) {
+    console.error('Error al reembolsar:', error)
+    toastr.error('Error al procesar el reembolso')
   }
 }
 </script>
@@ -207,7 +259,7 @@ async function loadInvoices() {
                   <p>Todavía no tienes ventas registradas</p>
                   <p class="text-sm mt-2">Las ventas aparecerán aquí una vez que proceses pagos a través de tu TPV virtual.</p>
                 </div>
-                <div v-else v-for="sale in salesStore.getSalesByUser(authStore.user?.username || '').slice(0, 5)" 
+                <div v-else v-for="sale in salesStore.getSalesByUser(authStore.user?.username || '').slice(0, 4)" 
                      :key="sale.id"
                      class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
@@ -217,7 +269,8 @@ async function loadInvoices() {
                       • Ref: {{ sale.reference }}
                     </div>
                     <div class="text-xs text-gray-500">
-                      Comisión: {{ sale.commission.percentage }}% ({{ sale.commission.amount.toFixed(2) }}€)
+                      Comisión: {{ calculateCommission(sale.amount).total.toFixed(2) }}€
+                      ({{ calculateCommission(sale.amount).percentage }}% + {{ calculateCommission(sale.amount).fixed }}€)
                     </div>
                   </div>
                   <div class="flex items-center space-x-4">
@@ -230,8 +283,18 @@ async function loadInvoices() {
                         {{ sale.amount.toFixed(2) }}€
                       </div>
                       <div class="text-xs text-gray-500">
-                        Neto: {{ sale.commission.total.toFixed(2) }}€
+                        Sin comisiones: {{ (sale.amount - calculateCommission(sale.amount).total).toFixed(2) }}€
                       </div>
+                      <button 
+                        v-if="sale.status === 'paid'"
+                        @click="handleRefund(sale.id)"
+                        class="mt-2 text-xs text-red-600 hover:text-red-800 font-medium flex items-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                        </svg>
+                        Reembolsar
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -258,7 +321,7 @@ async function loadInvoices() {
                 <p>No tienes tickets de soporte abiertos</p>
                 <p class="text-sm mt-2">Los tickets aparecerán aquí cuando necesites ayuda o soporte técnico.</p>
               </div>
-              <TicketList v-else :show-all="false" :max-items="5" :filtered-tickets="ticketStore.getMyTickets" />
+              <TicketList v-else :show-all="false" :max-items="4" :filtered-tickets="ticketStore.getMyTickets" />
             </div>
           </template>
 
@@ -290,7 +353,7 @@ async function loadInvoices() {
                 <p class="text-sm mt-2">Las ventas aparecerán aquí una vez que proceses pagos a través de tu TPV virtual.</p>
               </div>
               <div v-else class="space-y-4">
-                <div v-for="sale in filteredSales" :key="sale.id"
+                <div v-for="sale in paginatedSales" :key="sale.id"
                      class="flex items-center justify-between p-4 border rounded-lg">
                   <div>
                     <div class="font-medium text-gray-900">{{ sale.description }}</div>
@@ -299,7 +362,8 @@ async function loadInvoices() {
                       • Ref: {{ sale.reference }}
                     </div>
                     <div class="text-xs text-gray-500">
-                      Comisión: {{ sale.commission.percentage }}% ({{ sale.commission.amount.toFixed(2) }}€)
+                      Comisión: {{ calculateCommission(sale.amount).total.toFixed(2) }}€
+                      ({{ calculateCommission(sale.amount).percentage }}% + {{ calculateCommission(sale.amount).fixed }}€)
                     </div>
                   </div>
                   <div class="flex items-center space-x-4">
@@ -311,9 +375,55 @@ async function loadInvoices() {
                         {{ sale.amount.toFixed(2) }}€
                       </div>
                       <div class="text-xs text-gray-500">
-                        Neto: {{ sale.commission.total.toFixed(2) }}€
+                        Sin comisiones: {{ (sale.amount - calculateCommission(sale.amount).total).toFixed(2) }}€
                       </div>
+                      <button 
+                        v-if="sale.status === 'paid'"
+                        @click="handleRefund(sale.id)"
+                        class="mt-2 text-xs text-red-600 hover:text-red-800 font-medium flex items-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                        </svg>
+                        Reembolsar
+                      </button>
                     </div>
+                  </div>
+                </div>
+                
+                <!-- Paginación -->
+                <div v-if="totalPages > 1" class="flex items-center justify-between border-t pt-4 mt-4">
+                  <div class="text-sm text-gray-500">
+                    Mostrando {{ ((currentPage - 1) * itemsPerPage) + 1 }} a {{ Math.min(currentPage * itemsPerPage, filteredSales.length) }} de {{ filteredSales.length }} ventas
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <button 
+                      @click="prevPage"
+                      :disabled="currentPage === 1"
+                      :class="[
+                        'px-3 py-1 rounded-lg text-sm font-medium',
+                        currentPage === 1 
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ]"
+                    >
+                      Anterior
+                    </button>
+                    <span class="text-sm text-gray-600">
+                      Página {{ currentPage }} de {{ totalPages }}
+                    </span>
+                    <button 
+                      @click="nextPage"
+                      :disabled="currentPage === totalPages"
+                      :class="[
+                        'px-3 py-1 rounded-lg text-sm font-medium',
+                        currentPage === totalPages
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ]"
+                    >
+                      Siguiente
+                    </button>
                   </div>
                 </div>
               </div>

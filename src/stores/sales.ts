@@ -50,7 +50,7 @@ export const useSalesStore = defineStore('sales', () => {
     cancelled: 'bg-gray-50 text-gray-700'
   }
 
-  async function fetchSales(): Promise<boolean> {
+  const fetchSales = async (): Promise<boolean> => {
     try {
       isLoading.value = true
       lastError.value = null
@@ -83,9 +83,50 @@ export const useSalesStore = defineStore('sales', () => {
     }
   }
 
-  const getSalesByUser = (userId: string) => {
-    return sales.value.filter(sale => sale.userId === userId)
+  const refundSale = async (saleId: number): Promise<boolean> => {
+    try {
+      isLoading.value = true
+      lastError.value = null
+
+      const response = await axios.put(`https://api.green-sys.es/sales/${saleId}`, 
+        { status: 'refunded' },
+        {
+          headers: {
+            Authorization: `Bearer ${authStore.token}`
+          }
+        }
+      )
+
+      if (response.status === 200) {
+        // Actualizar el estado de la venta localmente
+        const saleIndex = sales.value.findIndex(s => s.id === saleId)
+        if (saleIndex !== -1) {
+          sales.value[saleIndex].status = 'refunded'
+        }
+        return true
+      }
+      return false
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          lastError.value = { message: 'Sesión expirada. Por favor, inicie sesión de nuevo.' }
+          authStore.logout()
+        } else {
+          lastError.value = { 
+            message: error.response?.data?.message || 'Error al reembolsar la venta.',
+            code: error.response?.data?.code
+          }
+        }
+      } else {
+        lastError.value = { message: 'Error inesperado al reembolsar la venta.' }
+      }
+      return false
+    } finally {
+      isLoading.value = false
+    }
   }
+
+  const getSalesByUser = (userId: string) => sales.value.filter(sale => sale.userId === userId)
 
   return {
     sales,
@@ -94,6 +135,7 @@ export const useSalesStore = defineStore('sales', () => {
     statusLabels,
     statusClasses,
     fetchSales,
+    refundSale,
     getSalesByUser
   }
 }) 
