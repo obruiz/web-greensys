@@ -7,6 +7,7 @@ import ClientPanel from '../views/ClientPanel.vue'
 import Payment from '../views/Payment.vue'
 import Tpv from '../views/Tpv.vue'
 import PaymentSuccess from '../views/PaymentSuccess.vue'
+import NotFound from '../views/NotFound.vue'
 import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({
@@ -51,7 +52,7 @@ const router = createRouter({
       component: () => import('../views/Documentation.vue')
     },
     {
-      path: '/tpv/:slug',
+      path: '/tpv/:slug?',
       name: 'tpv',
       component: Tpv,
       props: true
@@ -66,7 +67,12 @@ const router = createRouter({
       name: 'Profile',
       component: () => import('../views/Profile.vue'),
       meta: { requiresAuth: true }
-    } 
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: NotFound
+    }
   ]
 })
 

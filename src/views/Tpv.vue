@@ -3,25 +3,46 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { CreditCard, ShieldCheck, AlertCircle } from 'lucide-vue-next'
 import { useAuthStore } from '../stores/auth'
-import { useSalesStore } from '../stores/sales'
 
 interface Props {
   slug: string
 }
 
-const props = defineProps<Props>()
-const router = useRouter()
-const authStore = useAuthStore()
-const salesStore = useSalesStore()
-
-const loading = ref(true)
-const error = ref<string | null>(null)
-const paymentData = ref<{
+interface PaymentData {
   amount: number
   description: string
   merchantName: string
   reference: string
-} | null>(null)
+  returnUrl: string
+}
+
+const props = defineProps<Props>()
+const router = useRouter()
+const authStore = useAuthStore()
+
+// Simulación de pagos de prueba
+const MOCK_PAYMENTS: Record<string, PaymentData> = {
+  'demo-payment': {
+    amount: 29.99,
+    description: 'Compra de prueba',
+    merchantName: 'Tienda Demo',
+    reference: 'DEMO-001',
+    returnUrl: '/payment-success'
+  }
+}
+
+// Valores por defecto para pagos no encontrados
+const DEFAULT_PAYMENT: PaymentData = {
+  amount: 0,
+  description: 'Pago no encontrado',
+  merchantName: 'Error',
+  reference: '',
+  returnUrl: '/payment-error'
+}
+
+const loading = ref(true)
+const error = ref<string | null>(null)
+const paymentData = ref<PaymentData | null>(null)
 
 // Datos del formulario
 const cardNumber = ref('')
@@ -30,27 +51,30 @@ const cvc = ref('')
 const cardholderName = ref('')
 
 // Validaciones
-const formatCardNumber = (value: string) => {
-  const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
-  const matches = v.match(/\d{4,16}/g)
+const formatCardNumber = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
+  const matches = value.match(/\d{4,16}/g)
   const match = matches && matches[0] || ''
   const parts = []
   for (let i = 0, len = match.length; i < len; i += 4) {
     parts.push(match.substring(i, i + 4))
   }
   if (parts.length) {
-    return parts.join(' ')
+    cardNumber.value = parts.join(' ')
   } else {
-    return value
+    cardNumber.value = target.value
   }
 }
 
-const formatExpiry = (value: string) => {
-  const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
-  if (v.length >= 2) {
-    return v.slice(0, 2) + '/' + v.slice(2, 4)
+const formatExpiry = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
+  if (value.length >= 2) {
+    expiry.value = value.slice(0, 2) + '/' + value.slice(2, 4)
+  } else {
+    expiry.value = value
   }
-  return v
 }
 
 const validateForm = () => {
@@ -69,50 +93,34 @@ const validateForm = () => {
   return null
 }
 
-// Simular carga de datos del pago
+// Obtener datos del pago
 onMounted(async () => {
   try {
-    // Aquí iría la llamada real a tu API
-    const response = await simulateApiCall()
-    if (!response) {
-      throw new Error('Pago no encontrado')
+    // Si no hay código de venta, redirigir al home
+    if (!props.slug) {
+      router.push('/')
+      return
     }
-    paymentData.value = response
-    loading.value = false
+
+    loading.value = true
+    // Simulación de latencia de red
+    await new Promise(resolve => setTimeout(resolve, 800))
+    
+    // Buscar el pago en nuestro mock
+    const response = await fetch(`https://api.green-sys.es/sale/${props.slug}`)
+    if (!response.ok) {
+      paymentData.value = DEFAULT_PAYMENT
+      throw new Error('El pago solicitado no existe o ha expirado')
+    }
+    
+    const data = await response.json()
+    paymentData.value = data
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Error desconocido'
+  } finally {
     loading.value = false
   }
 })
-
-// Simulación de API con modo sandbox
-const simulateApiCall = () => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      if (authStore.isSandboxMode) {
-        // Datos de prueba en sandbox
-        resolve({
-          amount: 99.99,
-          description: 'Pago de prueba (SANDBOX)',
-          merchantName: 'Comercio Demo',
-          reference: 'SANDBOX-001'
-        })
-      } else {
-        // Lógica real de producción
-        if (props.slug === 'demo-payment') {
-          resolve({
-            amount: 99.99,
-            description: 'Pago real',
-            merchantName: 'Comercio Real',
-            reference: 'PROD-001'
-          })
-        } else {
-          reject(new Error('Pago no encontrado'))
-        }
-      }
-    }, 1000)
-  })
-}
 
 const handleSubmit = async () => {
   const validationError = validateForm()
@@ -125,31 +133,36 @@ const handleSubmit = async () => {
   error.value = null
 
   try {
-    // Crear la venta con estado pendiente
-    const sale = salesStore.createSale({
-      userId: paymentData.value?.merchantId || '',
-      amount: paymentData.value?.amount || 0,
-      description: paymentData.value?.description || '',
-      reference: paymentData.value?.reference || '',
-      status: 'pending',
-      paymentMethod: 'card',
-      metadata: {
-        customerName: cardholderName.value
-      }
-    })
-
-    // Simular procesamiento del pago
+    // Simulación de latencia de red
     await new Promise(resolve => setTimeout(resolve, 1500))
     
-    // Actualizar estado a pagado
-    salesStore.updateSaleStatus(sale.id, 'paid')
-
-    router.push({
-      path: '/payment-success',
-      query: { reference: sale.reference }
+    const response = await fetch('https://api.green-sys.es/payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        sale_id: props.slug,
+        cardNumber: cardNumber.value.replace(/\s+/g, ''),
+        expiry: expiry.value,
+        cvc: cvc.value,
+        cardholderName: cardholderName.value
+      })
     })
+
+    if (!response.ok) {
+      const data = await response.json()
+      throw new Error(data.error || 'Error procesando el pago')
+    }
+
+    // Si todo OK, redirigir
+    if (paymentData.value?.returnUrl.startsWith('http')) {
+      window.location.href = paymentData.value.returnUrl
+    } else {
+      router.push(paymentData.value?.returnUrl || '/payment-success')
+    }
   } catch (e) {
-    error.value = 'Error procesando el pago. Por favor, inténtalo de nuevo.'
+    error.value = 'Error procesando el pago: ' + (e instanceof Error ? e.message : 'Error desconocido')
     loading.value = false
   }
 }
@@ -172,23 +185,13 @@ const handleSubmit = async () => {
         <p class="mt-4 text-gray-600">Cargando información del pago...</p>
       </div>
 
-      <!-- Error State -->
-      <div v-else-if="error" class="bg-white rounded-lg shadow p-6 text-center">
-        <AlertCircle class="h-12 w-12 text-red-500 mx-auto mb-4" />
-        <h2 class="text-xl font-bold text-gray-900 mb-2">Error</h2>
-        <p class="text-gray-600">{{ error }}</p>
-        <button @click="router.push('/')" class="btn-primary mt-6">
-          Volver al inicio
-        </button>
-      </div>
-
       <!-- Payment Form -->
       <div v-else class="bg-white rounded-lg shadow overflow-hidden">
         <!-- Header -->
         <div class="bg-emerald-500 px-6 py-4">
           <div class="flex justify-between items-center">
             <h1 class="text-xl font-bold text-white">
-              {{ paymentData?.merchantName }}
+              {{ paymentData?.merchantName || 'Error' }}
             </h1>
             <ShieldCheck class="h-6 w-6 text-white" />
           </div>
@@ -196,6 +199,14 @@ const handleSubmit = async () => {
 
         <!-- Payment Details -->
         <div class="p-6">
+          <!-- Error Message -->
+          <div v-if="error" class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+            <div class="flex items-center space-x-2">
+              <AlertCircle class="h-5 w-5 text-red-500" />
+              <span class="text-red-800">{{ error }}</span>
+            </div>
+          </div>
+
           <div class="mb-6">
             <div class="text-sm text-gray-600">Importe a pagar</div>
             <div class="text-3xl font-bold text-gray-900">
@@ -214,12 +225,14 @@ const handleSubmit = async () => {
               <div class="relative">
                 <input
                   v-model="cardNumber"
-                  @input="cardNumber = formatCardNumber($event.target.value)"
+                  @input="formatCardNumber"
                   type="text"
                   maxlength="19"
                   class="input-field pl-10"
+                  :class="{'bg-gray-100': !MOCK_PAYMENTS[props.slug]}"
                   placeholder="1234 5678 9012 3456"
                   required
+                  :disabled="!MOCK_PAYMENTS[props.slug]"
                 />
                 <CreditCard class="h-5 w-5 text-gray-400 absolute left-3 top-2.5" />
               </div>
@@ -232,12 +245,14 @@ const handleSubmit = async () => {
                 </label>
                 <input
                   v-model="expiry"
-                  @input="expiry = formatExpiry($event.target.value)"
+                  @input="formatExpiry"
                   type="text"
                   maxlength="5"
                   class="input-field"
+                  :class="{'bg-gray-100': !MOCK_PAYMENTS[props.slug]}"
                   placeholder="MM/YY"
                   required
+                  :disabled="!MOCK_PAYMENTS[props.slug]"
                 />
               </div>
               <div>
@@ -249,8 +264,10 @@ const handleSubmit = async () => {
                   type="text"
                   maxlength="3"
                   class="input-field"
+                  :class="{'bg-gray-100': !MOCK_PAYMENTS[props.slug]}"
                   placeholder="123"
                   required
+                  :disabled="!MOCK_PAYMENTS[props.slug]"
                 />
               </div>
             </div>
@@ -263,18 +280,20 @@ const handleSubmit = async () => {
                 v-model="cardholderName"
                 type="text"
                 class="input-field"
+                :class="{'bg-gray-100': !MOCK_PAYMENTS[props.slug]}"
                 placeholder="NOMBRE APELLIDOS"
                 required
+                :disabled="!MOCK_PAYMENTS[props.slug]"
               />
             </div>
 
             <button
               type="submit"
               class="btn-primary w-full flex items-center justify-center"
-              :disabled="loading"
+              :disabled="loading || !MOCK_PAYMENTS[props.slug]"
             >
               <span v-if="loading">Procesando...</span>
-              <span v-else>Pagar {{ paymentData?.amount.toFixed(2) }}€</span>
+              <span v-else>{{ MOCK_PAYMENTS[props.slug] ? `Pagar ${paymentData?.amount.toFixed(2)}€` : 'Pago no disponible' }}</span>
             </button>
           </form>
 

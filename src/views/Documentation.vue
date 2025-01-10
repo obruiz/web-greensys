@@ -48,22 +48,21 @@ const runTest = async () => {
     const payload = JSON.parse(payloadText.value)
     console.log('Payload parseado:', payload)
     
-    // Simulamos una llamada a la API
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    testResponse.value = JSON.stringify({
-      success: true,
-      data: {
-        paymentUrl: `https://sandbox.green-sys.es/tpv/payment_${Date.now()}`,
-        amount: payload.amount,
-        currency: payload.currency,
-        reference: payload.reference
-      }
-    }, null, 2)
-    console.log('Respuesta generada:', testResponse.value)
-  } catch (error) {
+    const response = await fetch('https://api.green-sys.es/sale', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${testApiKey.value}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload)
+    })
+
+    const data = await response.json()
+    testResponse.value = JSON.stringify(data, null, 2)
+    console.log('Respuesta:', data)
+  } catch (error: unknown) {
     console.error('Error en la petición:', error)
-    testResponse.value = 'Error en la petición: ' + error.message
+    testResponse.value = 'Error en la petición: ' + (error instanceof Error ? error.message : 'Error desconocido')
   } finally {
     isLoading.value = false
     console.log('Petición finalizada')
@@ -163,7 +162,7 @@ const runTest = async () => {
               Entorno real para procesar pagos de tus clientes de forma segura.
             </p>
             <div class="bg-gray-100 p-4 rounded-lg">
-              <code class="text-sm">https://back.green-sys.es</code>
+              <code class="text-sm">https://api.green-sys.es</code>
             </div>
             <ul class="mt-4 space-y-2">
               <li class="flex items-center text-gray-600">
@@ -234,7 +233,7 @@ const runTest = async () => {
           <div class="flex items-start justify-between">
             <div>
               <h3 class="text-lg font-medium text-gray-900">
-                POST https://sandbox.green-sys.es/api/v1/payment
+                POST /sale
               </h3>
               <p class="mt-1 text-gray-600">Crea un nuevo pago y devuelve la URL del TPV</p>
             </div>
@@ -247,10 +246,11 @@ const runTest = async () => {
             <h4 class="text-sm font-medium text-gray-900 mb-2">Ejemplo de petición:</h4>
             <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto">
 {
-  "amount": 1000,
+  "amount": 29.99,
   "currency": "EUR",
   "description": "Compra de prueba",
-  "reference": "ORDER-123"
+  "reference": "ORDER-123",
+  "url_callback": "https://tienda.com/callback"
 }</pre>
           </div>
 
@@ -273,6 +273,18 @@ const runTest = async () => {
         
         <!-- Probador interactivo -->
         <div class="card space-y-4 mb-8">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              URL
+            </label>
+            <input 
+              type="text"
+              class="input-field bg-gray-100 cursor-not-allowed"
+              value="https://api.green-sys.es/sale"
+              disabled
+            />
+          </div>
+
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
               API Key
@@ -304,7 +316,7 @@ const runTest = async () => {
           <button 
             @click.prevent="runTest()" 
             class="btn-primary flex items-center justify-center space-x-2"
-            :disabled="isLoading || payloadError"
+            :disabled="isLoading || !!payloadError"
           >
             <PlayCircle v-if="!isLoading" class="h-5 w-5" />
             <Terminal v-else class="h-5 w-5 animate-spin" />
@@ -315,32 +327,6 @@ const runTest = async () => {
             <h4 class="text-sm font-medium text-gray-900 mb-2">Respuesta:</h4>
             <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto">{{ testResponse }}</pre>
           </div>
-        </div>
-        
-        <!-- Ejemplo en Python -->
-        <div class="card p-6">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">Ejemplo en Python</h3>
-          <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto">
-import requests
-
-url = "https://sandbox.green-sys.es/api/v1/payment"
-headers = {
-    "Authorization": "Bearer tu_api_key",
-    "Content-Type": "application/json"
-}
-data = {
-    "amount": 1000,
-    "currency": "EUR",
-    "description": "Compra de prueba",
-    "reference": "ORDER-123"
-}
-
-response = requests.post(url, headers=headers, json=data)
-
-if response.ok:
-    print("Pago creado:", response.json())
-else:
-    print("Error:", response.status_code, response.text)</pre>
         </div>
       </div>
     </div>
