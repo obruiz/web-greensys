@@ -10,10 +10,11 @@ const testResponse = ref('')
 const isLoading = ref(false)
 const payloadError = ref('')
 const payloadText = ref(JSON.stringify({
-  amount: 1000,
+  amount: 29.99,
   currency: "EUR",
   description: "Compra de prueba",
-  reference: "ORDER-123"
+  reference: "ORDER-123",
+  url_callback: "https://tienda.com/callback"
 }, null, 2))
 
 const validatePayload = () => {
@@ -48,7 +49,7 @@ const runTest = async () => {
     const payload = JSON.parse(payloadText.value)
     console.log('Payload parseado:', payload)
     
-    const response = await fetch('https://api.green-sys.es/sale', {
+    const response = await fetch('https://sandbox.green-sys.es/sales', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${testApiKey.value}`,
@@ -233,7 +234,7 @@ const runTest = async () => {
           <div class="flex items-start justify-between">
             <div>
               <h3 class="text-lg font-medium text-gray-900">
-                POST /sale
+                POST /sales
               </h3>
               <p class="mt-1 text-gray-600">Crea un nuevo pago y devuelve la URL del TPV</p>
             </div>
@@ -260,7 +261,7 @@ const runTest = async () => {
 {
   "success": true,
   "data": {
-    "paymentUrl": "https://sandbox.green-sys.es/tpv/abc123..."
+    "paymentUrl": "https://api.green-sys.es/tpv/abc123..."
   }
 }</pre>
           </div>
@@ -272,15 +273,15 @@ const runTest = async () => {
         <h2 class="text-2xl font-bold text-gray-900 mb-6">Prueba la API</h2>
         
         <!-- Probador interactivo -->
-        <div class="card space-y-4 mb-8">
+        <div class="card p-6 space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
-              URL
+              URL (URL de prueba - cambiar a api.green-sys.es en producción)
             </label>
             <input 
               type="text"
-              class="input-field bg-gray-100 cursor-not-allowed"
-              value="https://api.green-sys.es/sale"
+              class="input-field bg-gray-100 cursor-not-allowed text-base"
+              value="https://sandbox.green-sys.es/sales"
               disabled
             />
           </div>
@@ -292,7 +293,7 @@ const runTest = async () => {
             <input 
               v-model="testApiKey"
               type="text"
-              class="input-field"
+              class="input-field text-base"
               placeholder="Introduce tu API key"
             />
           </div>
@@ -305,7 +306,8 @@ const runTest = async () => {
               v-model="payloadText"
               @input="validatePayload"
               rows="6"
-              class="w-full font-mono text-sm bg-gray-800 text-gray-200 p-4 rounded-lg"
+              class="w-full font-mono text-base bg-gray-800 text-gray-200 p-4 rounded-lg"
+              style="height: 200px;"
               :class="{'border-2 border-red-500': payloadError}"
             ></textarea>
             <div v-if="payloadError" class="mt-1 text-sm text-red-500">
@@ -315,7 +317,7 @@ const runTest = async () => {
 
           <button 
             @click.prevent="runTest()" 
-            class="btn-primary flex items-center justify-center space-x-2"
+            class="btn-primary flex items-center justify-center space-x-2 py-2 text-base"
             :disabled="isLoading || !!payloadError"
           >
             <PlayCircle v-if="!isLoading" class="h-5 w-5" />
@@ -324,8 +326,8 @@ const runTest = async () => {
           </button>
 
           <div v-if="testResponse" class="mt-4">
-            <h4 class="text-sm font-medium text-gray-900 mb-2">Respuesta:</h4>
-            <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto">{{ testResponse }}</pre>
+            <h4 class="text-sm font-medium text-gray-900 mb-1">Respuesta:</h4>
+            <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto text-base">{{ testResponse }}</pre>
           </div>
         </div>
       </div>

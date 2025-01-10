@@ -107,7 +107,7 @@ onMounted(async () => {
     await new Promise(resolve => setTimeout(resolve, 800))
     
     // Buscar el pago en nuestro mock
-    const response = await fetch(`https://api.green-sys.es/sale/${props.slug}`)
+    const response = await fetch(`https://api.green-sys.es/sales/${props.slug}`)
     if (!response.ok) {
       paymentData.value = DEFAULT_PAYMENT
       throw new Error('El pago solicitado no existe o ha expirado')
@@ -136,7 +136,7 @@ const handleSubmit = async () => {
     // Simulación de latencia de red
     await new Promise(resolve => setTimeout(resolve, 1500))
     
-    const response = await fetch('https://api.green-sys.es/payment', {
+    const response = await fetch('https://api.green-sys.es/payments', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
