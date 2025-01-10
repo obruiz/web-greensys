@@ -1,15 +1,23 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import { BookOpen, CheckCircle } from 'lucide-vue-next'
+import { BookOpen, CheckCircle, LogIn } from 'lucide-vue-next'
 import toastr from '../toastrConfig'
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 
 const username = ref('')
 const password = ref('')
+const showRegisteredMessage = ref(false)
+
+onMounted(() => {
+  if (route.query.registered === 'true') {
+    showRegisteredMessage.value = true
+  }
+})
 
 const validateForm = () => {
   if (!username.value) {
@@ -26,14 +34,15 @@ const validateForm = () => {
 }
 
 const handleSubmit = async () => {
-  if (!validateForm()) return
+  if (!validateForm() || authStore.isLoading) return
 
-  try {
-    await authStore.login(username.value, password.value)
+  const result = await authStore.login(username.value, password.value)
+  
+  if (result === 'success') {
     toastr.success('Inicio de sesión exitoso')
     router.push(authStore.isAdmin ? '/admin' : '/client')
-  } catch (error) {
-    toastr.error('Error al iniciar sesión: ' + error.message)
+  } else if (authStore.lastError) {
+    toastr.error(authStore.lastError.message)
   }
 }
 </script>
@@ -94,6 +103,7 @@ const handleSubmit = async () => {
                   type="text" 
                   class="input-field" 
                   required
+                  :disabled="authStore.isLoading"
                 />
               </div>
               <div>
@@ -103,11 +113,19 @@ const handleSubmit = async () => {
                   type="password" 
                   class="input-field" 
                   required
+                  :disabled="authStore.isLoading"
                 />
               </div>
-              <div v-if="error" class="text-red-500 text-sm">{{ error }}</div>
-              <button type="submit" class="btn-primary w-full">
-                Iniciar sesión
+              <div v-if="authStore.lastError" class="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+                {{ authStore.lastError.message }}
+              </div>
+              <button 
+                type="submit" 
+                class="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="authStore.isLoading"
+              >
+                <span v-if="authStore.isLoading">Iniciando sesión...</span>
+                <span v-else>Iniciar sesión</span>
               </button>
             </form>
             <div class="mt-4 text-center">

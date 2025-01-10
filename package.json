@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -12,6 +12,7 @@
     "@vueuse/core": "^10.9.0",
     "autoprefixer": "^10.4.18",
     "axios": "^1.7.8",
+    "jwt-decode": "^4.0.0",
     "lucide-vue-next": "^0.359.0",
     "pinia": "^2.1.7",
     "postcss": "^8.4.35",

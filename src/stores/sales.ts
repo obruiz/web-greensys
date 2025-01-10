@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { useCommissionStore } from './commissions'
+import axios from 'axios'
+import { useAuthStore } from './auth'
 
 interface Sale {
   id: number;
@@ -19,9 +21,16 @@ interface Sale {
   };
 }
 
+interface ApiError {
+  message: string;
+  code?: string;
+}
+
 export const useSalesStore = defineStore('sales', () => {
   const sales = ref<Sale[]>([])
-  let nextId = 1
+  const isLoading = ref(false)
+  const lastError = ref<ApiError | null>(null)
+  const authStore = useAuthStore()
 
   // Etiquetas de estado en español
   const statusLabels = {
@@ -41,67 +50,50 @@ export const useSalesStore = defineStore('sales', () => {
     cancelled: 'bg-gray-50 text-gray-700'
   }
 
-  const createSale = (saleData: Omit<Sale, 'id' | 'createdAt' | 'commission'>) => {
-    const commissionStore = useCommissionStore()
-    const rate = commissionStore.commissionRates.standard // Por defecto usamos la tarifa estándar
+  async function fetchSales(): Promise<boolean> {
+    try {
+      isLoading.value = true
+      lastError.value = null
 
-    const commission = commissionStore.calculateCommission(saleData.amount, rate)
-    
-    const sale: Sale = {
-      id: nextId++,
-      createdAt: new Date(),
-      commission,
-      ...saleData
+      const response = await axios.get<{sales: Sale[]}>('https://api.green-sys.es/sales', {
+        headers: {
+          Authorization: `Bearer ${authStore.token}`
+        }
+      })
+
+      sales.value = response.data.sales
+      return true
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          lastError.value = { message: 'Sesión expirada. Por favor, inicie sesión de nuevo.' }
+          authStore.logout()
+        } else {
+          lastError.value = { 
+            message: error.response?.data?.message || 'Error al cargar las ventas.',
+            code: error.response?.data?.code
+          }
+        }
+      } else {
+        lastError.value = { message: 'Error inesperado al cargar las ventas.' }
+      }
+      return false
+    } finally {
+      isLoading.value = false
     }
-    sales.value.push(sale)
-    return sale
   }
 
   const getSalesByUser = (userId: string) => {
     return sales.value.filter(sale => sale.userId === userId)
   }
 
-  const updateSaleStatus = (saleId: number, newStatus: Sale['status']) => {
-    const sale = sales.value.find(s => s.id === saleId)
-    if (sale) {
-      sale.status = newStatus
-    }
-  }
-
-  // Para desarrollo, crear algunas ventas de ejemplo
-  if (process.env.NODE_ENV === 'development') {
-    createSale({
-      userId: 'client',
-      amount: 99.99,
-      description: 'Plan Premium',
-      reference: 'REF-001',
-      status: 'paid',
-      paymentMethod: 'card'
-    })
-    createSale({
-      userId: 'client',
-      amount: 49.99,
-      description: 'Plan Básico',
-      reference: 'REF-002',
-      status: 'pending',
-      paymentMethod: 'card'
-    })
-    createSale({
-      userId: 'client',
-      amount: 29.99,
-      description: 'Servicio Adicional',
-      reference: 'REF-003',
-      status: 'failed',
-      paymentMethod: 'card'
-    })
-  }
-
   return {
     sales,
+    isLoading,
+    lastError,
     statusLabels,
     statusClasses,
-    createSale,
-    getSalesByUser,
-    updateSaleStatus
+    fetchSales,
+    getSalesByUser
   }
 }) 

@@ -2,12 +2,14 @@
 import { ref, computed } from 'vue'
 import { useTicketStore } from '../stores/tickets'
 import { useAuthStore } from '../stores/auth'
+import { useUsersStore } from '../stores/users'
 import toastr from '../toastrConfig'
 
 const emit = defineEmits(['created'])
 
 const ticketStore = useTicketStore()
 const authStore = useAuthStore()
+const usersStore = useUsersStore()
 
 const title = ref('')
 const description = ref('')
@@ -17,7 +19,7 @@ const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 // Obtener solo los clientes registrados
 const availableClients = computed(() => 
-  authStore.registeredUsers.filter(user => user.role === 'client')
+  usersStore.users.filter(user => user.role === 'client')
 )
 
 const validateForm = () => {
@@ -39,27 +41,28 @@ const validateForm = () => {
   return true
 }
 
-const handleSubmit = () => {
-  if (!validateForm()) return
+const handleSubmit = async () => {
+  if (!validateForm() || ticketStore.isLoading) return
 
-  const userId = isAdmin.value ? selectedUser.value : authStore.user?.username
+  const success = await ticketStore.createTicket({
+    title: title.value,
+    description: description.value
+  })
 
-  if (userId) {
-    try {
-      ticketStore.createTicket(
-        userId,
-        title.value,
-        description.value
-      )
-      toastr.success('Ticket creado exitosamente')
-      title.value = ''
-      description.value = ''
-      selectedUser.value = ''
-      emit('created')
-    } catch (error) {
-      toastr.error('Error al crear el ticket: ' + error.message)
-    }
+  if (success) {
+    toastr.success('Ticket creado exitosamente')
+    title.value = ''
+    description.value = ''
+    selectedUser.value = ''
+    emit('created')
+  } else if (ticketStore.lastError) {
+    toastr.error(ticketStore.lastError.message)
   }
+}
+
+// Cargar la lista de usuarios si es admin
+if (isAdmin.value) {
+  usersStore.fetchUsers()
 }
 </script>
 
@@ -67,24 +70,48 @@ const handleSubmit = () => {
   <div>
     <div v-if="isAdmin" class="mb-4">
       <label for="user" class="block text-sm font-medium text-gray-700">Seleccionar Cliente</label>
-      <select v-model="selectedUser" id="user" class="input-field mt-1">
-        <option value="" disabled>Seleccione un cliente</option>
+      <select 
+        v-model="selectedUser" 
+        id="user" 
+        class="input-field mt-1"
+        :disabled="usersStore.isLoading"
+      >
+        <option value="" disabled>{{ usersStore.isLoading ? 'Cargando clientes...' : 'Seleccione un cliente' }}</option>
         <option v-for="user in availableClients" :key="user.username" :value="user.username">
-          {{ user.username }}
+          {{ user.businessName }} ({{ user.username }})
         </option>
       </select>
     </div>
 
     <div class="mb-4">
       <label for="title" class="block text-sm font-medium text-gray-700">Título</label>
-      <input v-model="title" id="title" type="text" class="input-field mt-1" />
+      <input 
+        v-model="title" 
+        id="title" 
+        type="text" 
+        class="input-field mt-1"
+        :disabled="ticketStore.isLoading"
+      />
     </div>
 
     <div class="mb-4">
       <label for="description" class="block text-sm font-medium text-gray-700">Descripción</label>
-      <textarea v-model="description" id="description" rows="3" class="input-field mt-1"></textarea>
+      <textarea 
+        v-model="description" 
+        id="description" 
+        rows="3" 
+        class="input-field mt-1"
+        :disabled="ticketStore.isLoading"
+      ></textarea>
     </div>
 
-    <button @click="handleSubmit" class="btn-primary">Crear Ticket</button>
+    <button 
+      @click="handleSubmit" 
+      class="btn-primary"
+      :disabled="ticketStore.isLoading"
+    >
+      <span v-if="ticketStore.isLoading">Creando ticket...</span>
+      <span v-else>Crear Ticket</span>
+    </button>
   </div>
 </template>

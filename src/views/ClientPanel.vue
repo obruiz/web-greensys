@@ -1,22 +1,28 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { LayoutDashboard, CreditCard, TicketCheck, Key, Switch, Receipt, Download, FileSpreadsheet } from 'lucide-vue-next'
+import { ref, computed, onMounted, watch } from 'vue'
+import { LayoutDashboard, CreditCard, TicketCheck, Key, Receipt, RefreshCw } from 'lucide-vue-next'
 import TicketList from '../components/TicketList.vue'
 import CreateTicket from '../components/CreateTicket.vue'
 import ApiKeyManager from '../components/ApiKeyManager.vue'
 import { useAuthStore } from '../stores/auth'
 import { useSalesStore } from '../stores/sales'
 import { useTicketStore } from '../stores/tickets'
+import { useApiKeyStore } from '../stores/apikeys'
+import { useInvoiceStore } from '../stores/invoices'
+import InvoiceList from '../components/InvoiceList.vue'
 import StatusLegend from '../components/StatusLegend.vue'
+import toastr from '../toastrConfig'
 
 const activeTab = ref('dashboard')
 const showCreateTicket = ref(false)
 const authStore = useAuthStore()
 const salesStore = useSalesStore()
 const ticketStore = useTicketStore()
+const apiKeyStore = useApiKeyStore()
+const invoiceStore = useInvoiceStore()
 
-const activeSaleFilter = ref<string | null>(null)
-const activeTicketFilter = ref<string | null>(null)
+const activeSaleFilter = ref<string | undefined>(undefined)
+const activeTicketFilter = ref<string | undefined>(undefined)
 
 const salesLegend = [
   { status: 'pending', label: 'Pendiente de pago', class: 'bg-yellow-50 text-yellow-700' },
@@ -32,86 +38,86 @@ const ticketLegend = [
   { status: 'resolved', label: 'Resuelto', class: 'bg-emerald-50 text-emerald-700' }
 ]
 
-// Computed para filtrar ventas
+const handleSaleFilter = (status: string | undefined) => {
+  activeSaleFilter.value = status
+}
+
+const handleTicketFilter = (status: string | undefined) => {
+  activeTicketFilter.value = status
+}
+
+// Observar cambios en el filtro de tickets para recargar
+watch(activeTicketFilter, async () => {
+  if (activeTab.value === 'tickets') {
+    await loadTickets()
+  }
+})
+
 const filteredSales = computed(() => {
-  const sales = salesStore.getSalesByUser(authStore.user?.username || '')
-  if (!activeSaleFilter.value) return sales
-  return sales.filter(sale => sale.status === activeSaleFilter.value)
+  let sales = salesStore.getSalesByUser(authStore.user?.username || '')
+  if (activeSaleFilter.value) {
+    sales = sales.filter(sale => sale.status === activeSaleFilter.value)
+  }
+  return sales
 })
 
-// Computed para filtrar tickets
 const filteredTickets = computed(() => {
-  const userTickets = ticketStore.getTicketsByUser(authStore.user?.username || '')
-  if (!activeTicketFilter.value) return userTickets
-  return userTickets.filter(ticket => ticket.status === activeTicketFilter.value)
+  const tickets = ticketStore.getMyTickets
+  if (!activeTicketFilter.value) return tickets
+  return tickets.filter(ticket => ticket.status === activeTicketFilter.value)
 })
 
-const handleSaleFilter = (status: string | null) => {
-  activeSaleFilter.value = activeSaleFilter.value === status ? null : status
-}
+// Cargar tickets y ventas al montar el componente
+onMounted(async () => {
+  await Promise.all([
+    loadTickets(),
+    loadSales(),
+    loadApiKeys(),
+    loadInvoices()
+  ])
+})
 
-const handleTicketFilter = (status: string | null) => {
-  activeTicketFilter.value = activeTicketFilter.value === status ? null : status
-}
+// Cargar tickets cuando se cambia a la pestaña de tickets o dashboard
+watch(activeTab, async (newTab) => {
+  if (newTab === 'tickets' || newTab === 'dashboard') {
+    await loadTickets()
+  }
+  if (newTab === 'purchases' || newTab === 'dashboard') {
+    await loadSales()
+  }
+  if (newTab === 'apikeys') {
+    await loadApiKeys()
+  }
+  if (newTab === 'invoices') {
+    await loadInvoices()
+  }
+})
 
-const getInvoiceMonths = () => {
-  const months: { id: string; label: string; total: number }[] = []
-  const sales = salesStore.getSalesByUser(authStore.user?.username || '')
-  
-  // Agrupar ventas por mes
-  const salesByMonth = sales.reduce((acc, sale) => {
-    if (sale.status === 'paid') {
-      const date = new Date(sale.createdAt)
-      const monthId = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      if (!acc[monthId]) {
-        acc[monthId] = {
-          total: 0,
-          label: new Date(date.getFullYear(), date.getMonth()).toLocaleDateString('es', {
-            month: 'long',
-            year: 'numeric'
-          })
-        }
-      }
-      acc[monthId].total += sale.commission.amount
-    }
-    return acc
-  }, {} as Record<string, { total: number; label: string }>)
-  
-  // Convertir a array y ordenar por fecha descendente
-  Object.entries(salesByMonth).forEach(([id, data]) => {
-    months.push({ id, ...data })
-  })
-  
-  return months.sort((a, b) => b.id.localeCompare(a.id))
-}
-
-const downloadInvoice = async (monthId: string) => {
-  try {
-    // Aquí iría la lógica para generar y descargar el PDF
-    const response = await fetch(`/api/invoices/${monthId}/pdf`)
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `factura-${monthId}.pdf`
-    a.click()
-  } catch (error) {
-    console.error('Error al descargar la factura:', error)
+async function loadTickets() {
+  const success = await ticketStore.fetchTickets()
+  if (!success && ticketStore.lastError) {
+    toastr.error(ticketStore.lastError.message)
   }
 }
 
-const downloadInvoiceXLS = async (monthId: string) => {
-  try {
-    // Aquí iría la lógica para generar y descargar el XLS
-    const response = await fetch(`/api/invoices/${monthId}/xls`)
-    const blob = await response.blob()
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `factura-${monthId}.xlsx`
-    a.click()
-  } catch (error) {
-    console.error('Error al descargar la factura:', error)
+async function loadSales() {
+  const success = await salesStore.fetchSales()
+  if (!success && salesStore.lastError) {
+    toastr.error(salesStore.lastError.message)
+  }
+}
+
+async function loadApiKeys() {
+  const success = await apiKeyStore.fetchApiKeys()
+  if (!success && apiKeyStore.lastError) {
+    toastr.error(apiKeyStore.lastError.message)
+  }
+}
+
+async function loadInvoices() {
+  const success = await invoiceStore.fetchInvoices()
+  if (!success && invoiceStore.lastError) {
+    toastr.error(invoiceStore.lastError.message)
   }
 }
 </script>
@@ -183,10 +189,25 @@ const downloadInvoiceXLS = async (monthId: string) => {
             <div class="card mb-8">
               <div class="flex justify-between items-center mb-6">
                 <h2 class="text-lg font-medium text-gray-900">Ventas Recientes</h2>
-                <button class="btn-primary" @click="activeTab = 'purchases'">Ver todas</button>
+                <div class="flex items-center space-x-2">
+                  <button 
+                    @click="loadSales"
+                    class="btn-secondary flex items-center space-x-2"
+                    :disabled="salesStore.isLoading"
+                  >
+                    <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': salesStore.isLoading }" />
+                    <span>Recargar</span>
+                  </button>
+                  <button class="btn-primary" @click="activeTab = 'purchases'">Ver todas</button>
+                </div>
               </div>
               <div class="space-y-4">
-                <div v-for="sale in salesStore.getSalesByUser(authStore.user?.username || '').slice(0, 5)" 
+                <div v-if="salesStore.getSalesByUser(authStore.user?.username || '').length === 0" 
+                     class="text-center py-8 text-gray-500">
+                  <p>Todavía no tienes ventas registradas</p>
+                  <p class="text-sm mt-2">Las ventas aparecerán aquí una vez que proceses pagos a través de tu TPV virtual.</p>
+                </div>
+                <div v-else v-for="sale in salesStore.getSalesByUser(authStore.user?.username || '').slice(0, 5)" 
                      :key="sale.id"
                      class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                   <div>
@@ -220,15 +241,40 @@ const downloadInvoiceXLS = async (monthId: string) => {
             <div class="card">
               <div class="flex justify-between items-center mb-6">
                 <h2 class="text-lg font-medium text-gray-900">Tickets Recientes</h2>
-                <button class="btn-primary" @click="activeTab = 'tickets'">Ver todos</button>
+                <div class="flex items-center space-x-2">
+                  <button 
+                    @click="loadTickets"
+                    class="btn-secondary flex items-center space-x-2"
+                    :disabled="ticketStore.isLoading"
+                  >
+                    <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': ticketStore.isLoading }" />
+                    <span>Recargar</span>
+                  </button>
+                  <button class="btn-primary" @click="activeTab = 'tickets'">Ver todos</button>
+                </div>
               </div>
-              <TicketList :show-all="false" :max-items="5" />
+              <div v-if="ticketStore.getMyTickets.length === 0" 
+                   class="text-center py-8 text-gray-500">
+                <p>No tienes tickets de soporte abiertos</p>
+                <p class="text-sm mt-2">Los tickets aparecerán aquí cuando necesites ayuda o soporte técnico.</p>
+              </div>
+              <TicketList v-else :show-all="false" :max-items="5" :filtered-tickets="ticketStore.getMyTickets" />
             </div>
           </template>
 
           <template v-if="activeTab === 'purchases'">
             <div class="mb-8">
-              <h2 class="text-2xl font-bold text-gray-900">Historial de Ventas</h2>
+              <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-900">Historial de Ventas</h2>
+                <button 
+                  @click="loadSales"
+                  class="btn-secondary flex items-center space-x-2"
+                  :disabled="salesStore.isLoading"
+                >
+                  <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': salesStore.isLoading }" />
+                  <span>Recargar</span>
+                </button>
+              </div>
             </div>
             <div class="card">
               <div class="mb-4 p-3 bg-gray-50 rounded-lg">
@@ -278,12 +324,22 @@ const downloadInvoiceXLS = async (monthId: string) => {
             <div class="mb-8">
               <div class="flex justify-between items-center">
                 <h2 class="text-2xl font-bold text-gray-900">Tickets de Soporte</h2>
-                <button 
-                  @click="showCreateTicket = true"
-                  class="btn-primary flex items-center space-x-2"
-                >
-                  <span>Crear Ticket</span>
-                </button>
+                <div class="flex items-center space-x-2">
+                  <button 
+                    @click="loadTickets"
+                    class="btn-secondary flex items-center space-x-2"
+                    :disabled="ticketStore.isLoading"
+                  >
+                    <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': ticketStore.isLoading }" />
+                    <span>Recargar</span>
+                  </button>
+                  <button 
+                    @click="showCreateTicket = true"
+                    class="btn-primary flex items-center space-x-2"
+                  >
+                    <span>Crear Ticket</span>
+                  </button>
+                </div>
               </div>
             </div>
             <div class="card">
@@ -294,7 +350,7 @@ const downloadInvoiceXLS = async (monthId: string) => {
                   @filter="handleTicketFilter"
                 />
               </div>
-              <TicketList :filtered-tickets="filteredTickets" />
+              <TicketList :show-all="true" :filtered-tickets="filteredTickets" />
             </div>
 
             <!-- Modal de Crear Ticket -->
@@ -332,48 +388,25 @@ const downloadInvoiceXLS = async (monthId: string) => {
 
           <template v-if="activeTab === 'invoices'">
             <div class="mb-8">
-              <h2 class="text-2xl font-bold text-gray-900">Facturas de Comisiones</h2>
+              <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-900">Facturas</h2>
+                <button 
+                  @click="loadInvoices"
+                  class="btn-secondary flex items-center space-x-2"
+                  :disabled="invoiceStore.isLoading"
+                >
+                  <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': invoiceStore.isLoading }" />
+                  <span>Recargar</span>
+                </button>
+              </div>
             </div>
             <div class="card">
-              <div class="mb-4 p-3 bg-gray-50 rounded-lg">
-                <div class="text-sm text-gray-600">
-                  Aquí puedes descargar las facturas de las comisiones cobradas por nuestro servicio.
-                </div>
-              </div>
-              
-              <div class="space-y-4">
-                <div v-for="month in getInvoiceMonths()" :key="month.id"
-                     class="flex items-center justify-between p-4 border rounded-lg">
-                  <div>
-                    <div class="font-medium text-gray-900">
-                      Factura {{ month.label }}
-                    </div>
-                    <div class="text-sm text-gray-600">
-                      Total comisiones: {{ month.total.toFixed(2) }}€
-                    </div>
-                  </div>
-                  <div class="flex items-center space-x-2">
-                    <button 
-                      @click="downloadInvoice(month.id)"
-                      class="btn-secondary flex items-center space-x-2"
-                    >
-                      <Download class="h-4 w-4" />
-                      <span>PDF</span>
-                    </button>
-                    <button 
-                      @click="downloadInvoiceXLS(month.id)"
-                      class="btn-secondary flex items-center space-x-2"
-                    >
-                      <FileSpreadsheet class="h-4 w-4" />
-                      <span>XLS</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <InvoiceList />
             </div>
           </template>
         </div>
       </div>
+
     </div>
   </section>
 </template>
