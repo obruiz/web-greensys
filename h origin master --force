@@ -1,0 +1,107 @@
+[33mcommit eca24007884a7b717c19642beb2d335092141089[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m)[m
+Author: Victoria Morquio <vcmm4@alu.ua.es>
+Date:   Wed Jan 8 15:30:00 2025 +0100
+
+    Implementación de la página 404 y manejo de rutas no existentes
+
+[33mcommit ab8a4abbc671e6f5514562d70b7c0181140215fd[m
+Author: Tono Mollá <tonomollag6@gmail.com>
+Date:   Wed Jan 8 14:45:00 2025 +0100
+
+    Implementación de la interfaz de ventas y gestión de productos en el TPV
+
+[33mcommit dff07cb0ffd0d5cc0307f3f6eb278394461f2e78[m
+Author: Victoria Morquio <vcmm4@alu.ua.es>
+Date:   Sun Jan 5 09:30:00 2025 +0100
+
+    Implementación de stores para estadísticas y gestión de usuarios
+
+[33mcommit 7209659ed9737f86960c4c13ed7479d917173310[m
+Author: Victoria Morquio <vcmm4@alu.ua.es>
+Date:   Sat Jan 4 11:45:00 2025 +0100
+
+    Mejoras en la vista AdminPanel para integrar datos dinámicos del cliente
+
+[33mcommit 74196c5e3771f4461c60342f541edb3adf585ca9[m
+Author: Victoria Morquio <vcmm4@alu.ua.es>
+Date:   Fri Jan 3 10:15:00 2025 +0100
+
+    Actualización inicial del panel de cliente: componentes StatusLegend y TicketList
+
+[33mcommit 610e852c2136676939ad4657425e13450f16f258[m
+Author: Tono Mollá <tonomollag6@gmail.com>
+Date:   Sat Dec 28 16:00:00 2024 +0100
+
+    Añadida documentación del sistema, guías de uso y FAQs
+
+[33mcommit 669283b7e36bbebadc6ba9ff0ea693573edb3a43[m
+Author: Tono Mollá <tonomollag6@gmail.com>
+Date:   Mon Dec 23 14:30:00 2024 +0100
+
+    Implementación de la página principal (Home)
+
+[33mcommit f1274c3bb60001547a38f7283006df5cc5e51dd7[m
+Author: Tono Mollá <tonomollag6@gmail.com>
+Date:   Sun Dec 22 17:45:00 2024 +0100
+
+    Implementación de ClientStore y gestión de datos del cliente
+
+[33mcommit a9791f37eaa3afa329b1749b54cef83e273cf076[m
+Author: Tono Mollá <tonomollag6@gmail.com>
+Date:   Fri Dec 20 15:30:00 2024 +0100
+
+    Añadidos componentes para la funcionalidad del panel de cliente
+
+[33mcommit 3187a18c0fbad0317113c14096970ae1d916e339[m
+Author: Tono Mollá <tonomollag6@gmail.com>
+Date:   Fri Dec 20 10:00:00 2024 +0100
+
+    Configuración inicial del panel de cliente
+
+[33mcommit 3f417ebf6c7da62c813737646155cce39e4ec6d5[m
+Author: Victoria Morquio <vcmm4@alu.ua.es>
+Date:   Thu Dec 12 11:45:00 2024 +0100
+
+    Implementación de la vista de perfil, UserStore y gestión de cuenta
+
+[33mcommit 8524c8da065954db503981e42b50df74b4d8ff02[m
+Author: Tono Mollá <tonomollag6@gmail.com>
+Date:   Sun Dec 8 18:30:00 2024 +0100
+
+    Implementación del formulario de registro con validaciones e integración con authStore
+
+[33mcommit c48475b740487d9fcfcb55aad88f391b1cff7fec[m
+Author: Victoria Morquio <vcmm4@alu.ua.es>
+Date:   Sun Dec 8 16:45:00 2024 +0100
+
+    Implementación del formulario de login e integración con authStore
+
+[33mcommit 1b739aef29f839fa18c3852cc1e22ca0e189bdd9[m
+Author: Tono Mollá <tonomollag6@gmail.com>
+Date:   Sun Dec 8 14:23:00 2024 +0100
+
+    Implementación de authStore y gestión de autenticación
+
+[33mcommit 4390a793ffa8247624279936d23bf11ddd286f34[m
+Author: Victoria Morquio <vcmm4@alu.ua.es>
+Date:   Fri Dec 6 16:42:00 2024 +0100
+
+    Configuración de Pinia, Vue Router y sistema de notificaciones
+
+[33mcommit e3219cbbe3b20c688a029505ca59c397eeb034c7[m
+Author: Victoria Morquio <vcmm4@alu.ua.es>
+Date:   Wed Dec 4 10:15:00 2024 +0100
+
+    Instalación y configuración de Tailwind CSS
+
+[33mcommit 5f2f2e220762d0b08428770081a362c004b20a6c[m
+Author: Victoria Morquio <vcmm4@alu.ua.es>
+Date:   Tue Dec 3 11:07:00 2024 +0100
+
+    Configuración del proyecto base
+
+[33mcommit 74a54688347c0f7f05b02368f146078ac69a4da7[m
+Author: Tono Mollá <tonomollag6@gmail.com>
+Date:   Tue Dec 3 10:37:00 2024 +0100
+
+    Commit inicial del README
