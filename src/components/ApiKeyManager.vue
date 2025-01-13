@@ -1,52 +1,113 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useApiKeyStore } from '../stores/apikeys'
 import toastr from '../toastrConfig'
 
 const apiKeyStore = useApiKeyStore()
-const showCreateForm = ref(false)
 const newKeyName = ref('')
-const selectedPermissions = ref<string[]>([])
+const showNewKey = ref<string | null>(null)
+const selectedKey = ref<string | null>(null)
+const showKeyModal = ref(false)
+const showDeleteModal = ref(false)
+const keyToDelete = ref<{id: number, name: string} | null>(null)
 
-const availablePermissions = [
-  { value: 'read', label: 'Lectura' },
-  { value: 'write', label: 'Escritura' },
-  { value: 'delete', label: 'Eliminación' }
-]
+onMounted(async () => {
+  await loadApiKeys()
+})
 
-const handleCreate = async () => {
-  if (!newKeyName.value) {
-    toastr.error('Por favor, ingresa un nombre para la API key')
+async function loadApiKeys() {
+  const success = await apiKeyStore.fetchApiKeys()
+  if (!success && apiKeyStore.lastError) {
+    toastr.error(apiKeyStore.lastError.message)
+  }
+}
+
+async function handleCreateKey() {
+  if (!newKeyName.value.trim()) {
+    toastr.error('El nombre de la API Key es requerido')
     return
   }
 
-  if (selectedPermissions.value.length === 0) {
-    toastr.error('Por favor, selecciona al menos un permiso')
-    return
-  }
-
-  const result = await apiKeyStore.createApiKey(newKeyName.value, selectedPermissions.value)
-  
-  if (result.success) {
-    toastr.success('API key creada correctamente')
-    // Mostrar la key al usuario
-    if (result.key) {
-      toastr.info(`Tu API key es: ${result.key}. Guárdala en un lugar seguro, no podrás verla de nuevo.`)
-    }
-    // Resetear el formulario
+  const newKey = await apiKeyStore.createApiKey(newKeyName.value)
+  if (newKey) {
+    showNewKey.value = newKey.key
+    toastr.success('API Key creada exitosamente')
     newKeyName.value = ''
-    selectedPermissions.value = []
-    showCreateForm.value = false
+    await loadApiKeys()
   } else if (apiKeyStore.lastError) {
     toastr.error(apiKeyStore.lastError.message)
   }
 }
 
-const handleRevoke = async (id: number) => {
-  const success = await apiKeyStore.revokeApiKey(id)
-  
+function handleShowKey(key: string) {
+  selectedKey.value = key
+  showKeyModal.value = true
+}
+
+async function copyToClipboard(text: string) {
+  if (!text) return
+
+  try {
+    // Primero intentamos usar el API moderno
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text)
+      toastr.success('API Key copiada al portapapeles')
+      return
+    }
+
+    // Fallback para navegadores que no soportan el API o contextos no seguros
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    textArea.style.position = 'fixed'
+    textArea.style.left = '-999999px'
+    textArea.style.top = '-999999px'
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+
+    try {
+      document.execCommand('copy')
+      toastr.success('API Key copiada al portapapeles')
+    } catch (err) {
+      toastr.error('Error al copiar. Por favor, copia manualmente el texto')
+    } finally {
+      textArea.remove()
+    }
+  } catch (err) {
+    console.error('Error al copiar:', err)
+    toastr.error('Error al copiar. Por favor, copia manualmente el texto')
+  }
+}
+
+const formatDate = (date: string | null) => {
+  if (!date) return ''
+  try {
+    return new Date(date).toLocaleString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  } catch (error) {
+    console.error('Error al formatear la fecha:', error)
+    return 'Fecha no disponible'
+  }
+}
+
+function handleDeleteClick(id: number, name: string) {
+  keyToDelete.value = { id, name }
+  showDeleteModal.value = true
+}
+
+async function confirmDelete() {
+  if (!keyToDelete.value) return
+
+  const success = await apiKeyStore.deleteApiKey(keyToDelete.value.id)
   if (success) {
-    toastr.success('API key revocada correctamente')
+    toastr.success('API Key eliminada exitosamente')
+    showDeleteModal.value = false
+    keyToDelete.value = null
   } else if (apiKeyStore.lastError) {
     toastr.error(apiKeyStore.lastError.message)
   }
@@ -54,100 +115,118 @@ const handleRevoke = async (id: number) => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex justify-between items-center">
-      <div>
-        <h3 class="text-lg font-medium text-gray-900">API Keys</h3>
-        <p class="mt-1 text-sm text-gray-500">
-          Gestiona tus API keys para integrar GreenSys con tus aplicaciones.
-        </p>
+  <div>
+    <!-- Formulario para crear nueva API Key -->
+    <div class="card mb-6">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">Crear Nueva API Key</h3>
+      <div class="space-y-4">
+        <div>
+          <label for="keyName" class="block text-sm font-medium text-gray-700">Nombre</label>
+          <input 
+            id="keyName"
+            v-model="newKeyName"
+            type="text"
+            class="input-field mt-1"
+            placeholder="ej. Integración con ERP"
+            :disabled="apiKeyStore.isLoading"
+          />
+        </div>
+        <button 
+          @click="handleCreateKey"
+          class="btn-primary w-full"
+          :disabled="apiKeyStore.isLoading"
+        >
+          {{ apiKeyStore.isLoading ? 'Creando...' : 'Crear API Key' }}
+        </button>
       </div>
-      <button 
-        @click="showCreateForm = true"
-        class="btn-primary"
-        :disabled="apiKeyStore.isLoading"
-      >
-        Nueva API Key
-      </button>
+
+      <!-- Mostrar nueva API Key -->
+      <div v-if="showNewKey" class="mt-4 p-4 bg-yellow-50 rounded-lg">
+        <div class="flex items-start">
+          <div class="flex-1">
+            <p class="text-sm font-medium text-yellow-800">
+              ¡Guarda esta API Key! No podrás verla de nuevo.
+            </p>
+            <div class="mt-2 font-mono text-sm text-yellow-700 break-all">
+              {{ showNewKey }}
+            </div>
+          </div>
+          <button 
+            @click="showNewKey = null"
+            class="ml-4 text-yellow-500 hover:text-yellow-600"
+          >
+            <span class="sr-only">Cerrar</span>
+            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Lista de API Keys -->
-    <div class="overflow-x-auto">
-      <table class="min-w-full divide-y divide-gray-200">
-        <thead class="bg-gray-50">
-          <tr>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Permisos</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Último uso</th>
-            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-          </tr>
-        </thead>
-        <tbody class="bg-white divide-y divide-gray-200">
-          <template v-if="apiKeyStore.isLoading">
-            <tr>
-              <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
-                Cargando API keys...
-              </td>
-            </tr>
-          </template>
-          <template v-else-if="apiKeyStore.apiKeys.length === 0">
-            <tr>
-              <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">
-                No hay API keys para mostrar
-              </td>
-            </tr>
-          </template>
-          <template v-else>
-            <tr v-for="key in apiKeyStore.apiKeys" :key="key.id">
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ key.name }}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <div class="flex flex-wrap gap-1">
-                  <span 
-                    v-for="permission in key.permissions" 
-                    :key="permission"
-                    class="px-2 py-1 text-xs font-medium rounded-full bg-blue-50 text-blue-700"
-                  >
-                    {{ permission }}
-                  </span>
-                </div>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap">
-                <span 
-                  :class="[
-                    'px-2 py-1 text-xs font-medium rounded-full',
-                    key.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'
-                  ]"
-                >
-                  {{ key.status === 'active' ? 'Activa' : 'Revocada' }}
-                </span>
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                {{ key.lastUsed ? new Date(key.lastUsed).toLocaleDateString() : 'Nunca' }}
-              </td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                <button 
-                  v-if="key.status === 'active'"
-                  @click="handleRevoke(key.id)"
-                  class="text-red-600 hover:text-red-900"
-                  :disabled="apiKeyStore.isLoading"
-                >
-                  Revocar
-                </button>
-              </td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
+    <div class="card">
+      <h3 class="text-lg font-medium text-gray-900 mb-4">API Keys Existentes</h3>
+      
+      <!-- Loading skeleton -->
+      <div v-if="apiKeyStore.isLoading" class="space-y-4">
+        <div v-for="n in 3" :key="n" class="animate-pulse">
+          <div class="h-4 bg-gray-200 rounded w-1/4 mb-2"></div>
+          <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+        </div>
+      </div>
+
+      <!-- No hay API Keys -->
+      <div v-else-if="apiKeyStore.apiKeys.length === 0" 
+           class="text-center py-8 text-gray-500">
+        <p>No hay API Keys creadas.</p>
+        <p class="text-sm mt-2">Crea una API Key para integrar servicios externos.</p>
+      </div>
+
+      <!-- Lista de API Keys -->
+      <div v-else class="space-y-4">
+        <div v-for="key in apiKeyStore.apiKeys" 
+             :key="key.id"
+             class="flex items-center justify-between p-4 border rounded-lg"
+        >
+          <div>
+            <div class="font-medium text-gray-900">{{ key.name }}</div>
+            <div class="text-sm text-gray-600">
+              Creada el {{ formatDate(key.createdAt) }}
+              <span v-if="key.lastUsed" class="mx-1">•</span>
+              <span v-if="key.lastUsed">
+                Último uso: {{ formatDate(key.lastUsed) }}
+              </span>
+            </div>
+          </div>
+          <div class="flex items-center space-x-4">
+            <button 
+              @click="handleShowKey(key.key)"
+              class="text-emerald-600 hover:text-emerald-700 text-sm font-medium"
+              :disabled="apiKeyStore.isLoading"
+            >
+              Ver Key
+            </button>
+            <button 
+              @click="handleDeleteClick(key.id, key.name)"
+              class="text-red-600 hover:text-red-700 text-sm font-medium"
+              :disabled="apiKeyStore.isLoading"
+            >
+              Eliminar
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- Modal de creación -->
-    <div v-if="showCreateForm" class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center">
-      <div class="bg-white rounded-lg shadow-xl max-w-lg w-full p-6">
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-xl font-semibold text-gray-900">Nueva API Key</h2>
+    <!-- Modal para mostrar API Key -->
+    <div v-if="showKeyModal" 
+         class="fixed top-0 left-0 right-0 bottom-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-medium text-gray-900">API Key</h3>
           <button 
-            @click="showCreateForm = false"
+            @click="showKeyModal = false"
             class="text-gray-400 hover:text-gray-500"
           >
             <span class="sr-only">Cerrar</span>
@@ -156,79 +235,73 @@ const handleRevoke = async (id: number) => {
             </svg>
           </button>
         </div>
-
-        <form @submit.prevent="handleCreate" class="space-y-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
-            <input 
-              v-model="newKeyName" 
-              type="text" 
-              class="input-field" 
-              required 
-              :disabled="apiKeyStore.isLoading"
-              placeholder="ej. API Producción"
-            />
+        
+        <div class="bg-gray-50 p-4 rounded-lg">
+          <div class="font-mono text-sm break-all mb-2">
+            {{ selectedKey }}
           </div>
+          <button 
+            @click="copyToClipboard(selectedKey || '')"
+            class="text-emerald-600 hover:text-emerald-700 text-sm font-medium flex items-center mt-2"
+          >
+            <svg class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+            </svg>
+            Copiar al portapapeles
+          </button>
+        </div>
 
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Permisos</label>
-            <div class="space-y-2">
-              <div 
-                v-for="permission in availablePermissions" 
-                :key="permission.value"
-                class="flex items-center"
-              >
-                <input 
-                  :id="permission.value"
-                  type="checkbox"
-                  :value="permission.value"
-                  v-model="selectedPermissions"
-                  class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
-                  :disabled="apiKeyStore.isLoading"
-                />
-                <label 
-                  :for="permission.value"
-                  class="ml-2 block text-sm text-gray-900"
-                >
-                  {{ permission.label }}
-                </label>
-              </div>
-            </div>
-          </div>
+        <div class="mt-4 flex justify-end">
+          <button 
+            @click="showKeyModal = false"
+            class="btn-secondary"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
 
-          <div class="flex justify-end space-x-3">
-            <button 
-              type="button" 
-              class="btn-secondary"
-              @click="showCreateForm = false"
-              :disabled="apiKeyStore.isLoading"
-            >
-              Cancelar
-            </button>
-            <button 
-              type="submit" 
-              class="btn-primary"
-              :disabled="apiKeyStore.isLoading"
-            >
-              {{ apiKeyStore.isLoading ? 'Creando...' : 'Crear API Key' }}
-            </button>
-          </div>
-        </form>
+    <!-- Modal de confirmación de eliminación -->
+    <div v-if="showDeleteModal" 
+         class="fixed top-0 left-0 right-0 bottom-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+      <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-medium text-gray-900">Confirmar eliminación</h3>
+          <button 
+            @click="showDeleteModal = false"
+            class="text-gray-400 hover:text-gray-500"
+          >
+            <span class="sr-only">Cerrar</span>
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <div class="mb-6">
+          <p class="text-sm text-gray-600">
+            ¿Estás seguro de que deseas eliminar la API Key "{{ keyToDelete?.name }}"? Esta acción no se puede deshacer.
+          </p>
+        </div>
+
+        <div class="flex justify-end space-x-3">
+          <button 
+            @click="showDeleteModal = false"
+            class="btn-secondary"
+            :disabled="apiKeyStore.isLoading"
+          >
+            Cancelar
+          </button>
+          <button 
+            @click="confirmDelete"
+            class="btn-primary bg-red-600 hover:bg-red-700 focus:ring-red-500"
+            :disabled="apiKeyStore.isLoading"
+          >
+            {{ apiKeyStore.isLoading ? 'Eliminando...' : 'Eliminar' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
-</template>
-
-<style scoped>
-.input-field {
-  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-100 disabled:cursor-not-allowed;
-}
-
-.btn-primary {
-  @apply inline-flex justify-center rounded-md border border-transparent bg-emerald-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-emerald-400 disabled:cursor-not-allowed;
-}
-
-.btn-secondary {
-  @apply inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed;
-}
-</style> 
+</template> 
