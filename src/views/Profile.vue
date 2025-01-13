@@ -255,7 +255,7 @@ const handleSubmit = async () => {
             <h2 class="text-xl font-semibold text-gray-900">Información Bancaria</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Banco</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del Banco</label>
                 <input 
                   v-model="formData.bankName" 
                   type="text" 
@@ -272,49 +272,37 @@ const handleSubmit = async () => {
                   class="input-field" 
                   required 
                   :disabled="authStore.isLoading"
-                  placeholder="ES91 2100 0418 4502 0005 1332"
+                  placeholder="ES1234567890123456789012"
                 />
               </div>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">SWIFT/BIC</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Código SWIFT</label>
               <input 
                 v-model="formData.swift" 
                 type="text" 
                 class="input-field" 
                 required 
                 :disabled="authStore.isLoading"
-                placeholder="CAIXESBBXXX"
+                placeholder="ABCDES2AXXX"
               />
             </div>
           </div>
 
-          <div class="flex justify-end">
-            <button 
-              type="submit" 
-              class="btn-primary"
-              :disabled="authStore.isLoading"
-            >
-              <span v-if="authStore.isLoading">Guardando...</span>
-              <span v-else>Guardar Cambios</span>
-            </button>
+          <div v-if="authStore.lastError" class="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+            {{ authStore.lastError.message }}
           </div>
+
+          <button 
+            type="submit" 
+            class="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="authStore.isLoading"
+          >
+            <span v-if="authStore.isLoading">Actualizando perfil...</span>
+            <span v-else>Actualizar Perfil</span>
+          </button>
         </form>
       </div>
     </div>
   </section>
-</template>
-
-<style scoped>
-.input-field {
-  @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500;
-}
-
-.btn-primary {
-  @apply bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed;
-}
-
-.card {
-  @apply bg-white rounded-lg shadow-lg p-6;
-}
-</style> 
+</template> 

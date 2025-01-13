@@ -142,17 +142,3 @@ const handleSubmit = async () => {
     </div>
   </section>
 </template>
-
-<style scoped>
-.input-field {
-  @apply w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-emerald-500 focus:border-emerald-500;
-}
-
-.btn-primary {
-  @apply bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2;
-}
-
-.card {
-  @apply bg-white rounded-lg;
-}
-</style> 

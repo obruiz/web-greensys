@@ -269,55 +269,52 @@ const handleSubmit = async () => {
                 />
               </div>
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">SWIFT</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
                 <input 
-                  v-model="formData.swift" 
+                  v-model="formData.iban" 
                   type="text" 
                   class="input-field" 
                   required 
                   :disabled="authStore.isLoading"
-                  placeholder="BSCHESMMXXX"
+                  placeholder="ES1234567890123456789012"
                 />
               </div>
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Código SWIFT</label>
               <input 
-                v-model="formData.iban" 
+                v-model="formData.swift" 
                 type="text" 
                 class="input-field" 
                 required 
                 :disabled="authStore.isLoading"
-                placeholder="ES0000000000000000000000"
+                placeholder="ABCDES2AXXX"
               />
             </div>
           </div>
 
-          <div class="flex justify-end">
-            <button 
-              type="submit" 
-              class="btn-primary"
-              :disabled="authStore.isLoading"
-            >
-              {{ authStore.isLoading ? 'Registrando...' : 'Registrarse' }}
-            </button>
+          <div v-if="authStore.lastError" class="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+            {{ authStore.lastError.message }}
+          </div>
+
+          <button 
+            type="submit" 
+            class="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="authStore.isLoading"
+          >
+            <span v-if="authStore.isLoading">Creando cuenta...</span>
+            <span v-else>Crear cuenta</span>
+          </button>
+          <div class="text-center">
+            <router-link to="/login" class="text-emerald-600 hover:text-emerald-500">
+              ¿Ya tienes cuenta? Inicia sesión
+            </router-link>
           </div>
         </form>
+      </div>
+      <div class="text-center mt-4 text-sm text-gray-600">
+        Al registrarte, un administrador deberá validar tu cuenta antes de que puedas iniciar sesión.
       </div>
     </div>
   </section>
 </template>
-
-<style scoped>
-.card {
-  @apply bg-white rounded-lg shadow-md p-6;
-}
-
-.input-field {
-  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-100 disabled:cursor-not-allowed;
-}
-
-.btn-primary {
-  @apply inline-flex justify-center rounded-md border border-transparent bg-emerald-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-emerald-400 disabled:cursor-not-allowed;
-}
-</style> 
