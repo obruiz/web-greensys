@@ -4,19 +4,20 @@ import axios from 'axios'
 import { useAuthStore } from './auth'
 
 interface ApiKey {
-  id: number;
-  userId: string;
-  name: string;
-  key: string;
-  createdAt: Date;
-  lastUsed?: Date;
-  permissions: string[];
-  status: 'active' | 'revoked';
+  id: number
+  name: string
+  key: string
+  createdAt: string
+  lastUsed: string | null
 }
 
 interface ApiError {
-  message: string;
-  code?: string;
+  message: string
+  code?: string
+}
+
+interface CreateApiKeyResponse {
+  apiKey: ApiKey
 }
 
 export const useApiKeyStore = defineStore('apikeys', () => {
@@ -25,7 +26,7 @@ export const useApiKeyStore = defineStore('apikeys', () => {
   const lastError = ref<ApiError | null>(null)
   const authStore = useAuthStore()
 
-  const fetchApiKeys = async (): Promise<boolean> => {
+  async function fetchApiKeys(): Promise<boolean> {
     try {
       isLoading.value = true
       lastError.value = null
@@ -36,7 +37,12 @@ export const useApiKeyStore = defineStore('apikeys', () => {
         }
       })
 
-      apiKeys.value = response.data.apiKeys
+      apiKeys.value = response.data.apiKeys?.map(key => ({
+        ...key,
+        createdAt: new Date(key.createdAt).toISOString(),
+        lastUsed: key.lastUsed ? new Date(key.lastUsed).toISOString() : null
+      })) || []
+      
       return true
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -45,12 +51,12 @@ export const useApiKeyStore = defineStore('apikeys', () => {
           authStore.logout()
         } else {
           lastError.value = { 
-            message: error.response?.data?.message || 'Error al cargar las API keys.',
+            message: error.response?.data?.message || 'Error al cargar las API Keys.',
             code: error.response?.data?.code
           }
         }
       } else {
-        lastError.value = { message: 'Error inesperado al cargar las API keys.' }
+        lastError.value = { message: 'Error inesperado al cargar las API Keys.' }
       }
       return false
     } finally {
@@ -58,22 +64,23 @@ export const useApiKeyStore = defineStore('apikeys', () => {
     }
   }
 
-  const createApiKey = async (name: string, permissions: string[]): Promise<{success: boolean, key?: string}> => {
+  async function createApiKey(name: string): Promise<ApiKey | null> {
     try {
       isLoading.value = true
       lastError.value = null
 
-      const response = await axios.post<{apiKey: ApiKey}>('https://api.green-sys.es/apikeys', {
-        name,
-        permissions
-      }, {
-        headers: {
-          Authorization: `Bearer ${authStore.token}`
+      const response = await axios.post<CreateApiKeyResponse>('https://api.green-sys.es/apikeys', 
+        { name },
+        {
+          headers: {
+            Authorization: `Bearer ${authStore.token}`
+          }
         }
-      })
+      )
 
-      apiKeys.value.push(response.data.apiKey)
-      return { success: true, key: response.data.apiKey.key }
+      const newApiKey = response.data.apiKey
+      apiKeys.value.push(newApiKey)
+      return newApiKey
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 401) {
@@ -81,20 +88,20 @@ export const useApiKeyStore = defineStore('apikeys', () => {
           authStore.logout()
         } else {
           lastError.value = { 
-            message: error.response?.data?.message || 'Error al crear la API key.',
+            message: error.response?.data?.message || 'Error al crear la API Key.',
             code: error.response?.data?.code
           }
         }
       } else {
-        lastError.value = { message: 'Error inesperado al crear la API key.' }
+        lastError.value = { message: 'Error inesperado al crear la API Key.' }
       }
-      return { success: false }
+      return null
     } finally {
       isLoading.value = false
     }
   }
 
-  const revokeApiKey = async (id: number): Promise<boolean> => {
+  async function deleteApiKey(id: number): Promise<boolean> {
     try {
       isLoading.value = true
       lastError.value = null
@@ -105,10 +112,8 @@ export const useApiKeyStore = defineStore('apikeys', () => {
         }
       })
 
-      const keyIndex = apiKeys.value.findIndex(key => key.id === id)
-      if (keyIndex !== -1) {
-        apiKeys.value[keyIndex].status = 'revoked'
-      }
+      // Eliminar la API Key de la lista local
+      apiKeys.value = apiKeys.value.filter(k => k.id !== id)
 
       return true
     } catch (error) {
@@ -118,12 +123,12 @@ export const useApiKeyStore = defineStore('apikeys', () => {
           authStore.logout()
         } else {
           lastError.value = { 
-            message: error.response?.data?.message || 'Error al revocar la API key.',
+            message: error.response?.data?.message || 'Error al eliminar la API Key.',
             code: error.response?.data?.code
           }
         }
       } else {
-        lastError.value = { message: 'Error inesperado al revocar la API key.' }
+        lastError.value = { message: 'Error inesperado al eliminar la API Key.' }
       }
       return false
     } finally {
@@ -137,6 +142,6 @@ export const useApiKeyStore = defineStore('apikeys', () => {
     lastError,
     fetchApiKeys,
     createApiKey,
-    revokeApiKey
+    deleteApiKey
   }
 }) 

@@ -4,57 +4,44 @@ import axios from 'axios'
 import { useAuthStore } from './auth'
 
 interface Invoice {
-  id: number;
-  userId: string;
-  number: string;
-  date: Date;
-  dueDate: Date;
-  amount: number;
-  status: 'pending' | 'paid' | 'overdue';
-  items: InvoiceItem[];
-  metadata?: Record<string, any>;
+  id: string
+  userId: string
+  amount: number
+  status: string
+  issuedDate: string
+  dueDate: string
+  paymentDate: string | null
+  description: string
+  reference: string
+  createdAt: string
+  updatedAt: string
 }
 
-interface InvoiceItem {
-  id: number;
-  invoiceId: number;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  total: number;
-}
-
-interface ApiError {
-  message: string;
-  code?: string;
+interface InvoiceError {
+  code: 'NETWORK_ERROR' | 'SERVER_ERROR' | 'INVALID_CREDENTIALS'
+  message: string
 }
 
 export const useInvoiceStore = defineStore('invoices', () => {
   const invoices = ref<Invoice[]>([])
   const isLoading = ref(false)
-  const lastError = ref<ApiError | null>(null)
+  const lastError = ref<InvoiceError | null>(null)
   const authStore = useAuthStore()
 
-  // Etiquetas de estado en español
-  const statusLabels = {
-    pending: 'Pendiente',
-    paid: 'Pagada',
-    overdue: 'Vencida'
-  }
-
-  // Clases de estilo para cada estado
-  const statusClasses = {
-    pending: 'bg-yellow-50 text-yellow-700',
-    paid: 'bg-emerald-50 text-emerald-700',
-    overdue: 'bg-red-50 text-red-700'
-  }
-
-  const fetchInvoices = async (): Promise<boolean> => {
+  async function fetchInvoices() {
     try {
+      if (!authStore.token) {
+        lastError.value = {
+          code: 'INVALID_CREDENTIALS',
+          message: 'No hay sesión activa'
+        }
+        return false
+      }
+
       isLoading.value = true
       lastError.value = null
 
-      const response = await axios.get<{invoices: Invoice[]}>('https://api.green-sys.es/invoices', {
+      const response = await axios.get('https://api.green-sys.es/invoices', {
         headers: {
           Authorization: `Bearer ${authStore.token}`
         }
@@ -65,62 +52,22 @@ export const useInvoiceStore = defineStore('invoices', () => {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 401) {
-          lastError.value = { message: 'Sesión expirada. Por favor, inicie sesión de nuevo.' }
+          lastError.value = {
+            code: 'INVALID_CREDENTIALS',
+            message: 'Sesión expirada. Por favor, inicie sesión nuevamente.'
+          }
           authStore.logout()
         } else {
-          lastError.value = { 
-            message: error.response?.data?.message || 'Error al cargar las facturas.',
-            code: error.response?.data?.code
+          lastError.value = {
+            code: 'SERVER_ERROR',
+            message: error.response?.data?.message || 'Error al obtener las facturas'
           }
         }
       } else {
-        lastError.value = { message: 'Error inesperado al cargar las facturas.' }
-      }
-      return false
-    } finally {
-      isLoading.value = false
-    }
-  }
-
-  const downloadInvoice = async (id: number): Promise<boolean> => {
-    try {
-      isLoading.value = true
-      lastError.value = null
-
-      const response = await axios.get(`https://api.green-sys.es/invoices/${id}/download`, {
-        headers: {
-          Authorization: `Bearer ${authStore.token}`
-        },
-        responseType: 'blob'
-      })
-
-      // Crear un blob con el PDF
-      const blob = new Blob([response.data], { type: 'application/pdf' })
-      const url = window.URL.createObjectURL(blob)
-      
-      // Crear un enlace temporal y hacer clic en él para descargar
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `factura-${id}.pdf`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-
-      return true
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 401) {
-          lastError.value = { message: 'Sesión expirada. Por favor, inicie sesión de nuevo.' }
-          authStore.logout()
-        } else {
-          lastError.value = { 
-            message: error.response?.data?.message || 'Error al descargar la factura.',
-            code: error.response?.data?.code
-          }
+        lastError.value = {
+          code: 'NETWORK_ERROR',
+          message: 'Error de conexión. Por favor, verifica tu conexión a internet.'
         }
-      } else {
-        lastError.value = { message: 'Error inesperado al descargar la factura.' }
       }
       return false
     } finally {
@@ -132,9 +79,6 @@ export const useInvoiceStore = defineStore('invoices', () => {
     invoices,
     isLoading,
     lastError,
-    statusLabels,
-    statusClasses,
-    fetchInvoices,
-    downloadInvoice
+    fetchInvoices
   }
 }) 

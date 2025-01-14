@@ -1,28 +1,24 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-interface Commission {
-  percentage: number;
-  fixed: number;
-}
-
 export const useCommissionStore = defineStore('commissions', () => {
-  const commission = ref<Commission>({
-    percentage: 1.4, // 1.4%
-    fixed: 0.25 // 0.25€
+  const commissionRates = ref({
+    standard: 2.9,    // 2.9%
+    premium: 1.9,     // 1.9%
+    enterprise: 0.9   // 0.9%
   })
 
-  const calculateCommission = (amount: number) => {
-    const total = (amount * (commission.value.percentage / 100)) + commission.value.fixed
+  const calculateCommission = (amount: number, rate: number) => {
+    const commissionAmount = (amount * rate) / 100
     return {
-      percentage: commission.value.percentage,
-      fixed: commission.value.fixed,
-      total
+      percentage: rate,
+      amount: commissionAmount,
+      total: amount - commissionAmount
     }
   }
 
   return {
-    commission,
+    commissionRates,
     calculateCommission
   }
 }) 

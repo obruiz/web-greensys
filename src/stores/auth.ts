@@ -33,6 +33,14 @@ interface AuthError {
   message: string;
 }
 
+interface Purchase {
+  id: number;
+  userId: string;
+  name: string;
+  date: string;
+  amount: string;
+}
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
   const token = ref<string | null>(null)
@@ -43,10 +51,9 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => user.value !== null)
   const isAdmin = computed(() => user.value?.role === 'admin')
 
-  const isSandboxMode = computed(() => {
-    const hostname = window.location.hostname
-    return typeof hostname === 'string' && hostname.indexOf('sandbox.') === 0
-  })
+  const isSandboxMode = computed(() => 
+    window.location.hostname.startsWith('sandbox.')
+  )
 
   // Inicializar el store con los datos del localStorage
   const initializeStore = async () => {
@@ -90,6 +97,46 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Llamar a initializeStore cuando se crea el store
   initializeStore()
+
+  async function register(userData: Omit<User, 'role' | 'status' | 'createdAt' | 'sandboxMode'> & { password: string }) {
+    try {
+      isLoading.value = true
+      lastError.value = null
+
+      const response = await fetch('https://api.green-sys.es/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData)
+      })
+
+      if (!response.ok) {
+        if (response.status === 400) {
+          lastError.value = {
+            code: 'VALIDATION_ERROR',
+            message: 'Los datos proporcionados no son válidos. Por favor, revisa todos los campos.'
+          }
+        } else {
+          lastError.value = {
+            code: 'SERVER_ERROR',
+            message: 'Error en el servidor. Por favor, inténtalo más tarde.'
+          }
+        }
+        return false
+      }
+
+      return true
+    } catch (error) {
+      lastError.value = {
+        code: 'NETWORK_ERROR',
+        message: 'Error de conexión. Por favor, verifica tu conexión a internet.'
+      }
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
 
   async function login(username: string, password: string) {
     try {
@@ -147,7 +194,7 @@ export const useAuthStore = defineStore('auth', () => {
           username: decoded.sub,
           role: decoded.role,
           status: 'active' as const,
-          sandboxMode: window.location.hostname.indexOf('sandbox.') === 0,
+          sandboxMode: window.location.hostname.startsWith('sandbox.'),
           email: '',
           phone: '',
           businessName: '',
@@ -202,34 +249,154 @@ export const useAuthStore = defineStore('auth', () => {
 
       if (response.data.profile && user.value) {
         Object.assign(user.value, response.data.profile)
-        return true
       }
 
-      return false
+      return true
     } catch (error) {
-      console.error('Error al obtener el perfil:', error)
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          lastError.value = {
+            code: 'INVALID_CREDENTIALS',
+            message: 'Sesión expirada. Por favor, inicie sesión de nuevo.'
+          }
+          logout()
+        } else {
+          lastError.value = {
+            code: 'SERVER_ERROR',
+            message: error.response?.data?.message || 'Error al cargar el perfil.'
+          }
+        }
+      } else {
+        lastError.value = {
+          code: 'NETWORK_ERROR',
+          message: 'Error de conexión. Por favor, verifica tu conexión a internet.'
+        }
+      }
       return false
     }
   }
 
   async function updateProfile(profileData: Partial<User>) {
     try {
-      if (!token.value) return false
+      if (!token.value) {
+        lastError.value = {
+          code: 'INVALID_CREDENTIALS',
+          message: 'No hay sesión activa. Por favor, inicie sesión.'
+        }
+        return false
+      }
 
-      const response = await axios.put('https://api.green-sys.es/profile', profileData, {
+      lastError.value = null // Limpiar errores anteriores
+      isLoading.value = true
+
+      const response = await axios.put('https://api.green-sys.es/profile', 
+        profileData,
+        {
+          headers: {
+            Authorization: `Bearer ${token.value}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+
+      if (response.data && user.value) {
+        // Actualizar solo los campos que se han modificado
+        Object.assign(user.value, response.data.profile || response.data)
+      }
+
+      return true
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          lastError.value = {
+            code: 'INVALID_CREDENTIALS',
+            message: 'Sesión expirada. Por favor, inicie sesión nuevamente.'
+          }
+          logout()
+        } else {
+          lastError.value = {
+            code: 'SERVER_ERROR',
+            message: error.response?.data?.message || 'Error al actualizar el perfil. Por favor, inténtelo de nuevo.'
+          }
+        }
+      } else {
+        lastError.value = {
+          code: 'NETWORK_ERROR',
+          message: 'Error de conexión. Por favor, verifica tu conexión a internet.'
+        }
+      }
+      return false
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  async function fetchUsers() {
+    try {
+      if (!token.value || !isAdmin.value) return false
+
+      const response = await axios.get('https://api.green-sys.es/users', {
         headers: {
           Authorization: `Bearer ${token.value}`
         }
       })
 
-      if (response.data.success && user.value) {
-        Object.assign(user.value, profileData)
-        return true
+      registeredUsers.value = response.data
+      return true
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          logout()
+        }
+        lastError.value = {
+          code: 'SERVER_ERROR',
+          message: error.response?.data?.message || 'Error al obtener los usuarios.'
+        }
+      } else {
+        lastError.value = {
+          code: 'NETWORK_ERROR',
+          message: 'Error de conexión. Por favor, verifica tu conexión a internet.'
+        }
+      }
+      return false
+    }
+  }
+
+  async function updateUserStatus(username: string, status: 'pending' | 'active' | 'inactive') {
+    try {
+      if (!token.value || !isAdmin.value) return false
+
+      await axios.put(`https://api.green-sys.es/users/${username}/status`,
+        { status },
+        {
+          headers: {
+            Authorization: `Bearer ${token.value}`
+          }
+        }
+      )
+
+      // Actualizar el estado del usuario en la lista local
+      const userIndex = registeredUsers.value.findIndex(u => u.username === username)
+      if (userIndex !== -1) {
+        registeredUsers.value[userIndex].status = status
       }
 
-      return false
+      return true
     } catch (error) {
-      console.error('Error al actualizar el perfil:', error)
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401) {
+          logout()
+        }
+        lastError.value = {
+          code: 'SERVER_ERROR',
+          message: error.response?.data?.message || 'Error al actualizar el estado del usuario.'
+        }
+      } else {
+        lastError.value = {
+          code: 'NETWORK_ERROR',
+          message: 'Error de conexión. Por favor, verifica tu conexión a internet.'
+        }
+      }
       return false
     }
   }
@@ -243,9 +410,12 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     isAdmin,
     isSandboxMode,
+    register,
     login,
     logout,
     getProfile,
-    updateProfile
+    updateProfile,
+    fetchUsers,
+    updateUserStatus
   }
-}) 
+})
