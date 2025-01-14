@@ -57,4 +57,4 @@ style.textContent = `
 
 document.head.appendChild(style)
 
-export default toastr 
+export default toastr
