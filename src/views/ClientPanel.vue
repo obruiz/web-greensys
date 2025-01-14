@@ -1,9 +1,3 @@
-<template>
-  <div class="min-h-screen bg-gray-100 p-6">
-    <h1 class="text-3xl font-bold text-gray-900">Panel de Cliente</h1>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { LayoutDashboard, CreditCard, TicketCheck, Key, Receipt, RefreshCw } from 'lucide-vue-next'
@@ -254,71 +248,55 @@ const handleRefund = async (saleId: number) => {
                     :disabled="salesStore.isLoading"
                   >
                     <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': salesStore.isLoading }" />
-                    <span>Actualizar</span>
+                    <span>Recargar</span>
                   </button>
+                  <button class="btn-primary" @click="activeTab = 'purchases'">Ver todas</button>
                 </div>
               </div>
-
-              <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                  <thead class="bg-gray-50">
-                    <tr>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody class="bg-white divide-y divide-gray-200">
-                    <tr v-for="sale in paginatedSales" :key="sale.id">
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ sale.id }}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ new Date(sale.createdAt).toLocaleDateString() }}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              <div class="space-y-4">
+                <div v-if="salesStore.getSalesByUser(authStore.user?.username || '').length === 0" 
+                     class="text-center py-8 text-gray-500">
+                  <p>Todavía no tienes ventas registradas</p>
+                  <p class="text-sm mt-2">Las ventas aparecerán aquí una vez que proceses pagos a través de tu TPV virtual.</p>
+                </div>
+                <div v-else v-for="sale in salesStore.getSalesByUser(authStore.user?.username || '').slice(0, 4)" 
+                     :key="sale.id"
+                     class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div>
+                    <div class="font-medium text-gray-900">{{ sale.description }}</div>
+                    <div class="text-sm text-gray-600">
+                      {{ new Date(sale.createdAt).toLocaleDateString() }}
+                      • Ref: {{ sale.reference }}
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      Comisión: {{ calculateCommission(sale.amount).total.toFixed(2) }}€
+                      ({{ calculateCommission(sale.amount).percentage }}% + {{ calculateCommission(sale.amount).fixed }}€)
+                    </div>
+                  </div>
+                  <div class="flex items-center space-x-4">
+                    <span :class="['px-2 py-1 text-xs font-medium rounded-full', 
+                                  salesStore.statusClasses[sale.status]]">
+                      {{ salesStore.statusLabels[sale.status] }}
+                    </span>
+                    <div class="text-right">
+                      <div class="text-lg font-medium text-gray-900">
                         {{ sale.amount.toFixed(2) }}€
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span :class="['px-2 py-1 text-xs font-medium rounded-full', salesStore.statusClasses[sale.status]]">
-                          {{ salesStore.statusLabels[sale.status] }}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <button 
-                          v-if="sale.status === 'paid'"
-                          @click="handleRefund(sale.id)"
-                          class="text-red-600 hover:text-red-900"
-                          :disabled="salesStore.isLoading"
-                        >
-                          Reembolsar
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <!-- Paginación -->
-              <div class="flex justify-between items-center mt-4">
-                <div class="text-sm text-gray-700">
-                  Mostrando {{ (currentPage - 1) * itemsPerPage + 1 }} a {{ Math.min(currentPage * itemsPerPage, filteredSales.length) }} de {{ filteredSales.length }} resultados
-                </div>
-                <div class="flex space-x-2">
-                  <button 
-                    @click="prevPage"
-                    :disabled="currentPage === 1"
-                    class="btn-secondary"
-                  >
-                    Anterior
-                  </button>
-                  <button 
-                    @click="nextPage"
-                    :disabled="currentPage === totalPages"
-                    class="btn-secondary"
-                  >
-                    Siguiente
-                  </button>
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        Sin comisiones: {{ (sale.amount - calculateCommission(sale.amount).total).toFixed(2) }}€
+                      </div>
+                      <button 
+                        v-if="sale.status === 'paid'"
+                        @click="handleRefund(sale.id)"
+                        class="mt-2 text-xs text-red-600 hover:text-red-800 font-medium flex items-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                        </svg>
+                        Reembolsar
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -333,177 +311,212 @@ const handleRefund = async (saleId: number) => {
                     :disabled="ticketStore.isLoading"
                   >
                     <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': ticketStore.isLoading }" />
-                    <span>Actualizar</span>
+                    <span>Recargar</span>
                   </button>
+                  <button class="btn-primary" @click="activeTab = 'tickets'">Ver todos</button>
                 </div>
               </div>
-
-              <TicketList 
-                :tickets="filteredTickets.slice(0, 5)"
-                :loading="ticketStore.isLoading"
-              />
+              <div v-if="ticketStore.getMyTickets.length === 0" 
+                   class="text-center py-8 text-gray-500">
+                <p>No tienes tickets de soporte abiertos</p>
+                <p class="text-sm mt-2">Los tickets aparecerán aquí cuando necesites ayuda o soporte técnico.</p>
+              </div>
+              <TicketList v-else :show-all="false" :max-items="4" :filtered-tickets="ticketStore.getMyTickets" />
             </div>
           </template>
 
-          <template v-else-if="activeTab === 'purchases'">
+          <template v-if="activeTab === 'purchases'">
             <div class="mb-8">
-              <h2 class="text-2xl font-bold text-gray-900">Historial de Ventas</h2>
-            </div>
-
-            <div class="card">
-              <div class="flex justify-between items-center mb-6">
-                <StatusLegend 
-                  :items="salesLegend"
-                  :active-filter="activeSaleFilter"
-                  @filter="handleSaleFilter"
-                />
+              <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-900">Historial de Ventas</h2>
                 <button 
                   @click="loadSales"
                   class="btn-secondary flex items-center space-x-2"
                   :disabled="salesStore.isLoading"
                 >
                   <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': salesStore.isLoading }" />
-                  <span>Actualizar</span>
+                  <span>Recargar</span>
                 </button>
               </div>
-
-              <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                  <thead class="bg-gray-50">
-                    <tr>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Importe</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Comisión</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody class="bg-white divide-y divide-gray-200">
-                    <tr v-for="sale in paginatedSales" :key="sale.id">
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ sale.id }}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ new Date(sale.createdAt).toLocaleDateString() }}
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {{ sale.amount.toFixed(2) }}€
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {{ sale.commission.total.toFixed(2) }}€
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap">
-                        <span :class="['px-2 py-1 text-xs font-medium rounded-full', salesStore.statusClasses[sale.status]]">
-                          {{ salesStore.statusLabels[sale.status] }}
-                        </span>
-                      </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <button 
-                          v-if="sale.status === 'paid'"
-                          @click="handleRefund(sale.id)"
-                          class="text-red-600 hover:text-red-900"
-                          :disabled="salesStore.isLoading"
-                        >
-                          Reembolsar
-                        </button>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+            </div>
+            <div class="card">
+              <div class="mb-4 p-3 bg-gray-50 rounded-lg">
+                <StatusLegend 
+                  :items="salesLegend"
+                  :active-filter="activeSaleFilter"
+                  @filter="handleSaleFilter"
+                />
               </div>
-
-              <!-- Paginación -->
-              <div class="flex justify-between items-center mt-4">
-                <div class="text-sm text-gray-700">
-                  Mostrando {{ (currentPage - 1) * itemsPerPage + 1 }} a {{ Math.min(currentPage * itemsPerPage, filteredSales.length) }} de {{ filteredSales.length }} resultados
+              <div v-if="filteredSales.length === 0" 
+                   class="text-center py-12 text-gray-500">
+                <p class="text-lg">Todavía no tienes ventas registradas</p>
+                <p class="text-sm mt-2">Las ventas aparecerán aquí una vez que proceses pagos a través de tu TPV virtual.</p>
+              </div>
+              <div v-else class="space-y-4">
+                <div v-for="sale in paginatedSales" :key="sale.id"
+                     class="flex items-center justify-between p-4 border rounded-lg">
+                  <div>
+                    <div class="font-medium text-gray-900">{{ sale.description }}</div>
+                    <div class="text-sm text-gray-600">
+                      {{ new Date(sale.createdAt).toLocaleDateString() }}
+                      • Ref: {{ sale.reference }}
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      Comisión: {{ calculateCommission(sale.amount).total.toFixed(2) }}€
+                      ({{ calculateCommission(sale.amount).percentage }}% + {{ calculateCommission(sale.amount).fixed }}€)
+                    </div>
+                  </div>
+                  <div class="flex items-center space-x-4">
+                    <span :class="['px-2 py-1 text-xs font-medium rounded-full', salesStore.statusClasses[sale.status]]">
+                      {{ salesStore.statusLabels[sale.status] }}
+                    </span>
+                    <div class="text-right">
+                      <div class="text-lg font-medium text-gray-900">
+                        {{ sale.amount.toFixed(2) }}€
+                      </div>
+                      <div class="text-xs text-gray-500">
+                        Sin comisiones: {{ (sale.amount - calculateCommission(sale.amount).total).toFixed(2) }}€
+                      </div>
+                      <button 
+                        v-if="sale.status === 'paid'"
+                        @click="handleRefund(sale.id)"
+                        class="mt-2 text-xs text-red-600 hover:text-red-800 font-medium flex items-center"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                        </svg>
+                        Reembolsar
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div class="flex space-x-2">
-                  <button 
-                    @click="prevPage"
-                    :disabled="currentPage === 1"
-                    class="btn-secondary"
-                  >
-                    Anterior
-                  </button>
-                  <button 
-                    @click="nextPage"
-                    :disabled="currentPage === totalPages"
-                    class="btn-secondary"
-                  >
-                    Siguiente
-                  </button>
+                
+                <!-- Paginación -->
+                <div v-if="totalPages > 1" class="flex items-center justify-between border-t pt-4 mt-4">
+                  <div class="text-sm text-gray-500">
+                    Mostrando {{ ((currentPage - 1) * itemsPerPage) + 1 }} a {{ Math.min(currentPage * itemsPerPage, filteredSales.length) }} de {{ filteredSales.length }} ventas
+                  </div>
+                  <div class="flex items-center space-x-2">
+                    <button 
+                      @click="prevPage"
+                      :disabled="currentPage === 1"
+                      :class="[
+                        'px-3 py-1 rounded-lg text-sm font-medium',
+                        currentPage === 1 
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ]"
+                    >
+                      Anterior
+                    </button>
+                    <span class="text-sm text-gray-600">
+                      Página {{ currentPage }} de {{ totalPages }}
+                    </span>
+                    <button 
+                      @click="nextPage"
+                      :disabled="currentPage === totalPages"
+                      :class="[
+                        'px-3 py-1 rounded-lg text-sm font-medium',
+                        currentPage === totalPages
+                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ]"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           </template>
 
-          <template v-else-if="activeTab === 'tickets'">
+          <template v-if="activeTab === 'tickets'">
             <div class="mb-8">
               <div class="flex justify-between items-center">
-                <h2 class="text-2xl font-bold text-gray-900">Soporte Técnico</h2>
-                <button 
-                  @click="showCreateTicket = true"
-                  class="btn-primary"
-                >
-                  Nuevo Ticket
-                </button>
+                <h2 class="text-2xl font-bold text-gray-900">Tickets de Soporte</h2>
+                <div class="flex items-center space-x-2">
+                  <button 
+                    @click="loadTickets"
+                    class="btn-secondary flex items-center space-x-2"
+                    :disabled="ticketStore.isLoading"
+                  >
+                    <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': ticketStore.isLoading }" />
+                    <span>Recargar</span>
+                  </button>
+                  <button 
+                    @click="showCreateTicket = true"
+                    class="btn-primary flex items-center space-x-2"
+                  >
+                    <span>Crear Ticket</span>
+                  </button>
+                </div>
               </div>
             </div>
-
             <div class="card">
-              <div class="flex justify-between items-center mb-6">
+              <div class="mb-4 p-3 bg-gray-50 rounded-lg">
                 <StatusLegend 
                   :items="ticketLegend"
                   :active-filter="activeTicketFilter"
                   @filter="handleTicketFilter"
                 />
+              </div>
+              <TicketList :show-all="true" :filtered-tickets="filteredTickets" />
+            </div>
+
+            <!-- Modal de Crear Ticket -->
+            <div v-if="showCreateTicket" 
+                 class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+              <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+                <div class="flex justify-between items-center mb-4">
+                  <h3 class="text-lg font-medium text-gray-900">Crear Nuevo Ticket</h3>
+                  <button 
+                    @click="showCreateTicket = false"
+                    class="text-gray-400 hover:text-gray-500"
+                  >
+                    <span class="sr-only">Cerrar</span>
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <CreateTicket @created="showCreateTicket = false" />
+              </div>
+            </div>
+          </template>
+
+          <template v-if="activeTab === 'apikeys'">
+            <div class="mb-8">
+              <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-900">API Keys</h2>
+              </div>
+            </div>
+            <div class="card">
+              <ApiKeyManager />
+            </div>
+          </template>
+
+          <template v-if="activeTab === 'invoices'">
+            <div class="mb-8">
+              <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-900">Facturas</h2>
                 <button 
-                  @click="loadTickets"
+                  @click="loadInvoices"
                   class="btn-secondary flex items-center space-x-2"
-                  :disabled="ticketStore.isLoading"
+                  :disabled="invoiceStore.isLoading"
                 >
-                  <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': ticketStore.isLoading }" />
-                  <span>Actualizar</span>
+                  <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': invoiceStore.isLoading }" />
+                  <span>Recargar</span>
                 </button>
               </div>
-
-              <TicketList 
-                :tickets="filteredTickets"
-                :loading="ticketStore.isLoading"
-              />
             </div>
-          </template>
-
-          <template v-else-if="activeTab === 'apikeys'">
-            <div class="mb-8">
-              <h2 class="text-2xl font-bold text-gray-900">API Keys</h2>
+            <div class="card">
+              <InvoiceList />
             </div>
-
-            <ApiKeyManager />
-          </template>
-
-          <template v-else-if="activeTab === 'invoices'">
-            <div class="mb-8">
-              <h2 class="text-2xl font-bold text-gray-900">Facturas</h2>
-            </div>
-
-            <InvoiceList />
           </template>
         </div>
       </div>
+
     </div>
   </section>
 </template>
-
-<style scoped>
-.card {
-  @apply bg-white rounded-lg shadow-md p-6;
-}
-
-.btn-primary {
-  @apply inline-flex justify-center rounded-md border border-transparent bg-emerald-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-emerald-400 disabled:cursor-not-allowed;
-}
-
-.btn-secondary {
-  @apply inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed;
-}
-</style> 

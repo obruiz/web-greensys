@@ -88,7 +88,7 @@ const runTest = async () => {
       <div class="max-w-7xl mx-auto px-4">
         <nav class="flex space-x-8">
           <button 
-            v-for="tab in ['introduction', 'authentication', 'endpoint', 'cards', 'testing', 'faqs']"
+            v-for="tab in ['introduction', 'authentication', 'endpoint', 'cards', 'testing']"
             :key="tab"
             @click="activeTab = tab"
             :class="[
@@ -185,6 +185,7 @@ const runTest = async () => {
         <div class="prose max-w-none">
           <h2 class="text-2xl font-bold text-gray-900 mb-6">Autenticación</h2>
           
+          <!-- Explicación principal -->
           <div class="card p-6 mb-12">
             <h3 class="text-lg font-medium text-gray-900 mb-4">Headers de Autenticación</h3>
             <p class="text-gray-600 mb-4">
@@ -196,6 +197,7 @@ const runTest = async () => {
             </div>
           </div>
 
+          <!-- Gestión de API Keys -->
           <div class="card p-6">
             <div v-if="!authStore.isAuthenticated" class="bg-yellow-50 border border-yellow-200 p-4 rounded-lg">
               <div class="flex items-center space-x-2">
@@ -254,16 +256,58 @@ const runTest = async () => {
 }</pre>
           </div>
 
-          <div class="mt-4">
-            <h4 class="text-sm font-medium text-gray-900 mb-2">Respuesta exitosa:</h4>
-            <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto">
+          <div class="mt-6">
+            <h4 class="text-sm font-medium text-gray-900 mb-2">Respuestas:</h4>
+            
+            <div class="space-y-4">
+              <!-- 201 -->
+              <div class="border border-emerald-200 rounded-lg overflow-hidden">
+                <div class="bg-emerald-50 px-4 py-2 border-b border-emerald-200">
+                  <span class="text-sm font-medium text-emerald-800">201 - Venta creada exitosamente</span>
+                </div>
+                <div class="p-4">
+                  <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto">
 {
-  "id": "sale_123",
-  "url": "https://tpv.green-sys.es/pay/sale_123",
-  "amount": 29.99,
-  "currency": "EUR",
-  "status": "pending"
+  "url": "https://green-sys.es/tpv/795d0a7f-2aca..."
 }</pre>
+                </div>
+              </div>
+
+              <!-- Nota de expiración -->
+              <div class="border border-yellow-200 rounded-lg overflow-hidden">
+                <div class="bg-yellow-50 px-4 py-2 border-b border-yellow-200">
+                  <div class="flex items-center space-x-2">
+                    <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                    </svg>
+                    <span class="text-sm font-medium text-yellow-800">
+                      Los enlaces de pago expiran después de 15 minutos y la venta pasará al estado "failure"
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 400 -->
+              <div class="border border-red-200 rounded-lg overflow-hidden">
+                <div class="bg-red-50 px-4 py-2 border-b border-red-200">
+                  <span class="text-sm font-medium text-red-800">400 - Datos incompletos o referencia duplicada</span>
+                </div>
+              </div>
+
+              <!-- 401 -->
+              <div class="border border-red-200 rounded-lg overflow-hidden">
+                <div class="bg-red-50 px-4 py-2 border-b border-red-200">
+                  <span class="text-sm font-medium text-red-800">401 - Falta la API Key o la API Key es inválida</span>
+                </div>
+              </div>
+
+              <!-- 500 -->
+              <div class="border border-red-200 rounded-lg overflow-hidden">
+                <div class="bg-red-50 px-4 py-2 border-b border-red-200">
+                  <span class="text-sm font-medium text-red-800">500 - Error interno del servidor</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -271,28 +315,71 @@ const runTest = async () => {
       <!-- Cards -->
       <div v-else-if="activeTab === 'cards'" class="space-y-8">
         <div class="card">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">Tarjetas de Prueba</h3>
+          <h3 class="text-lg font-medium text-gray-900 mb-4">
+            Tarjetas de Prueba
+          </h3>
           <p class="text-gray-600 mb-6">
-            Usa estas tarjetas para probar diferentes escenarios en el entorno de sandbox.
+            Utiliza estas tarjetas para realizar pruebas en el entorno sandbox. Cualquier otra tarjeta será rechazada.
           </p>
-
+          
           <div class="space-y-6">
-            <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
-              <h4 class="font-medium text-emerald-900 mb-2">Pago Exitoso</h4>
-              <ul class="space-y-2 text-emerald-800">
-                <li>Número: 4242 4242 4242 4242</li>
-                <li>Fecha: Cualquier fecha futura</li>
-                <li>CVV: Cualquier número de 3 dígitos</li>
-              </ul>
+            <!-- Visa -->
+            <div class="border border-gray-200 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-4">
+                <span class="text-lg font-medium text-gray-900">Visa</span>
+                <span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">Test Card</span>
+              </div>
+              <div class="space-y-2">
+                <div class="grid grid-cols-3 gap-4">
+                  <div>
+                    <span class="text-sm text-gray-500">Número</span>
+                    <div class="font-mono text-gray-900">4111 1111 1111 1111</div>
+                  </div>
+                  <div>
+                    <span class="text-sm text-gray-500">CVV</span>
+                    <div class="font-mono text-gray-900">123</div>
+                  </div>
+                  <div>
+                    <span class="text-sm text-gray-500">Expiración</span>
+                    <div class="font-mono text-gray-900">12/25</div>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div class="bg-red-50 p-4 rounded-lg border border-red-200">
-              <h4 class="font-medium text-red-900 mb-2">Pago Fallido</h4>
-              <ul class="space-y-2 text-red-800">
-                <li>Número: 4000 0000 0000 0002</li>
-                <li>Fecha: Cualquier fecha futura</li>
-                <li>CVV: Cualquier número de 3 dígitos</li>
-              </ul>
+            <!-- Mastercard -->
+            <div class="border border-gray-200 rounded-lg p-4">
+              <div class="flex items-center justify-between mb-4">
+                <span class="text-lg font-medium text-gray-900">Mastercard</span>
+                <span class="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-medium rounded-full">Test Card</span>
+              </div>
+              <div class="space-y-2">
+                <div class="grid grid-cols-3 gap-4">
+                  <div>
+                    <span class="text-sm text-gray-500">Número</span>
+                    <div class="font-mono text-gray-900">5500 0000 0000 0004</div>
+                  </div>
+                  <div>
+                    <span class="text-sm text-gray-500">CVV</span>
+                    <div class="font-mono text-gray-900">456</div>
+                  </div>
+                  <div>
+                    <span class="text-sm text-gray-500">Expiración</span>
+                    <div class="font-mono text-gray-900">11/26</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div class="flex items-center space-x-2">
+                <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-sm text-yellow-800">
+                  Cualquier otra tarjeta será rechazada.
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -300,130 +387,78 @@ const runTest = async () => {
 
       <!-- Testing -->
       <div v-else-if="activeTab === 'testing'" class="space-y-8">
-        <div class="card">
-          <h3 class="text-lg font-medium text-gray-900 mb-4">Prueba la API</h3>
-          <p class="text-gray-600 mb-6">
-            Realiza una prueba rápida de la API usando tu API key de sandbox.
-          </p>
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">Prueba la API</h2>
+        
+        <!-- Probador interactivo -->
+        <div class="card p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              URL (URL de prueba - cambiar a api.green-sys.es en producción)
+            </label>
+            <input 
+              type="text"
+              class="input-field bg-gray-100 cursor-not-allowed text-base"
+              value="https://sandbox.green-sys.es/sales"
+              disabled
+            />
+          </div>
 
-          <div class="space-y-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                API Key
-              </label>
-              <input
-                v-model="testApiKey"
-                type="text"
-                class="input-field"
-                placeholder="Ingresa tu API key de sandbox"
-              />
-            </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              API Key
+            </label>
+            <input 
+              v-model="testApiKey"
+              type="text"
+              class="input-field text-base"
+              placeholder="Introduce tu API key"
+            />
+          </div>
 
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                Payload
-              </label>
-              <textarea
-                v-model="payloadText"
-                @input="validatePayload"
-                rows="8"
-                class="input-field font-mono"
-              ></textarea>
-              <p v-if="payloadError" class="mt-1 text-sm text-red-600">
-                {{ payloadError }}
-              </p>
-            </div>
-
-            <div>
-              <button
-                @click="runTest"
-                :disabled="isLoading || !!payloadError"
-                class="btn-primary"
-              >
-                {{ isLoading ? 'Ejecutando...' : 'Probar API' }}
-              </button>
-            </div>
-
-            <div v-if="testResponse" class="mt-4">
-              <h4 class="text-sm font-medium text-gray-900 mb-2">Respuesta:</h4>
-              <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto">{{ testResponse }}</pre>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Payload
+            </label>
+            <textarea
+              v-model="payloadText"
+              @input="validatePayload"
+              rows="6"
+              class="w-full font-mono text-base bg-gray-800 text-gray-200 p-4 rounded-lg"
+              style="height: 200px;"
+              :class="{'border-2 border-red-500': payloadError}"
+            ></textarea>
+            <div v-if="payloadError" class="mt-1 text-sm text-red-500">
+              {{ payloadError }}
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- FAQs -->
-      <div v-else-if="activeTab === 'faqs'" class="space-y-8">
-        <div class="card">
-          <h3 class="text-lg font-medium text-gray-900 mb-6">Preguntas Frecuentes</h3>
+          <button 
+            @click.prevent="runTest()" 
+            class="btn-primary flex items-center justify-center space-x-2 py-2 text-base"
+            :disabled="isLoading || !!payloadError"
+          >
+            <PlayCircle v-if="!isLoading" class="h-5 w-5" />
+            <Terminal v-else class="h-5 w-5 animate-spin" />
+            <span>Ejecutar prueba</span>
+          </button>
 
-          <div class="space-y-6">
-            <div>
-              <h4 class="font-medium text-gray-900 mb-2">
-                ¿Qué métodos de pago están disponibles?
-              </h4>
-              <p class="text-gray-600">
-                Aceptamos todas las tarjetas principales (Visa, Mastercard, American Express)
-                y transferencias bancarias SEPA.
-              </p>
-            </div>
-
-            <div>
-              <h4 class="font-medium text-gray-900 mb-2">
-                ¿Cuánto tiempo tarda en procesarse un pago?
-              </h4>
-              <p class="text-gray-600">
-                Los pagos con tarjeta son instantáneos. Las transferencias SEPA pueden
-                tardar hasta 24 horas hábiles.
-              </p>
-            </div>
-
-            <div>
-              <h4 class="font-medium text-gray-900 mb-2">
-                ¿Qué sucede si un pago falla?
-              </h4>
-              <p class="text-gray-600">
-                Recibirás una notificación inmediata a través del webhook configurado
-                con el motivo del fallo. El cliente puede reintentar el pago.
-              </p>
-            </div>
-
-            <div>
-              <h4 class="font-medium text-gray-900 mb-2">
-                ¿Cómo manejo los reembolsos?
-              </h4>
-              <p class="text-gray-600">
-                Los reembolsos se pueden procesar a través de la API o desde el panel
-                de control. El dinero se devuelve al método de pago original.
-              </p>
-            </div>
-
-            <div>
-              <h4 class="font-medium text-gray-900 mb-2">
-                ¿Qué medidas de seguridad implementan?
-              </h4>
-              <p class="text-gray-600">
-                Utilizamos certificación PCI DSS, cifrado de extremo a extremo,
-                y autenticación 3D Secure 2.0 para garantizar la seguridad de las transacciones.
-              </p>
-            </div>
+          <div v-if="testResponse" class="mt-4">
+            <h4 class="text-sm font-medium text-gray-900 mb-1">Respuesta:</h4>
+            <pre class="bg-gray-800 text-gray-200 p-4 rounded-lg overflow-x-auto text-base">{{ testResponse }}</pre>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Botón flotante de contacto -->
+    <a
+      href="mailto:tmgm5@alu.ua.es"
+      class="fixed bottom-8 right-8 bg-emerald-500 hover:bg-emerald-600 text-white rounded-full p-4 shadow-lg flex items-center space-x-2 transition-colors duration-200"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+      </svg>
+      <span>Contactar</span>
+    </a>
   </div>
-</template>
-
-<style scoped>
-.card {
-  @apply bg-white rounded-lg shadow-sm p-6;
-}
-
-.btn-primary {
-  @apply inline-flex justify-center rounded-md border border-transparent bg-emerald-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-emerald-400 disabled:cursor-not-allowed;
-}
-
-.input-field {
-  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500;
-}
-</style> 
+</template> 

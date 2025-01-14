@@ -1,320 +1,299 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useTpvStore } from '../stores/tpv'
-import { useAuthStore } from '../stores/auth'
-import { Plus, Minus, Trash2, CreditCard, Banknote, QrCode } from 'lucide-vue-next'
-import toastr from '../toastrConfig'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { CreditCard, ShieldCheck } from 'lucide-vue-next'
 
-const tpvStore = useTpvStore()
-const authStore = useAuthStore()
+interface Props {
+  slug: string
+}
 
-// Estado local
-const selectedCategory = ref<string | null>(null)
-const searchQuery = ref('')
-const showPaymentModal = ref(false)
+interface PaymentData {
+  amount: number
+  description: string
+  reference: string
+  status: string
+  sandbox: boolean
+  metadata: string // URL de callback
+}
 
-// Productos filtrados
-const filteredProducts = computed(() => {
-  let filtered = tpvStore.products
-  
-  if (selectedCategory.value) {
-    filtered = filtered.filter(p => p.category === selectedCategory.value)
+const props = defineProps<Props>()
+const router = useRouter()
+
+const paymentData = ref<PaymentData | null>(null)
+const error = ref<string | null>(null)
+const isLoading = ref(true)
+const isDisabled = ref(false)
+
+// Datos del formulario
+const cardNumber = ref(import.meta.env.DEV ? '4111 1111 1111 1111' : '')
+const expiry = ref(import.meta.env.DEV ? '12/25' : '')
+const cvc = ref(import.meta.env.DEV ? '123' : '')
+const cardholderName = ref('')
+
+// Validaciones
+const formatCardNumber = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
+  const matches = value.match(/\d{4,16}/g)
+  const match = matches && matches[0] || ''
+  const parts = []
+  for (let i = 0, len = match.length; i < len; i += 4) {
+    parts.push(match.substring(i, i + 4))
   }
-  
-  if (searchQuery.value) {
-    const query = searchQuery.value.toLowerCase()
-    filtered = filtered.filter(p => 
-      p.name.toLowerCase().includes(query) || 
-      p.category.toLowerCase().includes(query)
-    )
-  }
-  
-  return filtered
-})
-
-// Categorías únicas
-const categories = computed(() => {
-  const uniqueCategories = new Set(tpvStore.products.map(p => p.category))
-  return Array.from(uniqueCategories)
-})
-
-// Cargar productos al montar
-onMounted(async () => {
-  const success = await tpvStore.fetchProducts()
-  if (!success && tpvStore.lastError) {
-    toastr.error(tpvStore.lastError.message)
-  }
-})
-
-// Métodos del carrito
-const addToCart = (product: any) => {
-  if (product.stock > 0) {
-    tpvStore.addToCart(product)
-    toastr.success('Producto añadido al carrito')
+  if (parts.length) {
+    cardNumber.value = parts.join(' ')
   } else {
-    toastr.error('Producto sin stock')
+    cardNumber.value = target.value
   }
 }
 
-const removeFromCart = (productId: number) => {
-  tpvStore.removeFromCart(productId)
-  toastr.success('Producto eliminado del carrito')
-}
-
-const updateQuantity = (productId: number, quantity: number) => {
-  const item = tpvStore.cart.find(item => item.product.id === productId)
-  if (item) {
-    if (quantity <= 0) {
-      removeFromCart(productId)
-    } else if (quantity <= item.product.stock) {
-      tpvStore.updateQuantity(productId, quantity)
-    } else {
-      toastr.error('Stock insuficiente')
-    }
+const formatExpiry = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value.replace(/\s+/g, '').replace(/[^0-9]/gi, '')
+  if (value.length >= 2) {
+    expiry.value = value.slice(0, 2) + '/' + value.slice(2, 4)
+  } else {
+    expiry.value = value
   }
 }
 
-// Procesar pago
-const processSale = async (paymentMethod: string) => {
-  if (tpvStore.cart.length === 0) {
-    toastr.error('El carrito está vacío')
+const validateForm = () => {
+  if (cardNumber.value.replace(/\s+/g, '').length !== 16) {
+    return 'Número de tarjeta inválido'
+  }
+  if (expiry.value.length !== 5) {
+    return 'Fecha de expiración inválida'
+  }
+  if (cvc.value.length !== 3) {
+    return 'CVC inválido'
+  }
+  if (cardholderName.value.length < 3) {
+    return 'Nombre del titular requerido'
+  }
+  return null
+}
+
+// Obtener datos del pago
+onMounted(async () => {
+  if (!props.slug) {
+    router.push('/')
     return
   }
 
-  const sale = await tpvStore.createSale(paymentMethod)
-  if (sale) {
-    showPaymentModal.value = false
-    toastr.success('Venta procesada correctamente')
-    await tpvStore.completeSale(sale.id)
-  } else if (tpvStore.lastError) {
-    toastr.error(tpvStore.lastError.message)
-  }
-}
-
-const cancelCurrentSale = async () => {
-  if (tpvStore.currentSale) {
-    const success = await tpvStore.cancelSale(tpvStore.currentSale.id)
-    if (success) {
-      showPaymentModal.value = false
-      toastr.success('Venta cancelada')
-    } else if (tpvStore.lastError) {
-      toastr.error(tpvStore.lastError.message)
+  try {
+    const response = await fetch(`https://api.green-sys.es/sales/${props.slug}`)
+    if (!response.ok) {
+      throw new Error('Venta no encontrada')
     }
+
+    const data = await response.json()
+    paymentData.value = data
+    
+    // Deshabilitar formulario si la venta no está pendiente
+    if (data.status !== 'pending') {
+      error.value = 'Esta venta ya no está disponible para pago'
+      isDisabled.value = true
+    }
+
+    document.title = `Pago de ${data.amount}€ - Green TPV`
+  } catch (err) {
+    error.value = 'No se pudo cargar la información del pago'
+    console.error(err)
+  } finally {
+    isLoading.value = false
+  }
+})
+
+const handleSubmit = async () => {
+  const validationError = validateForm()
+  if (validationError) {
+    error.value = validationError
+    return
+  }
+
+  isLoading.value = true
+  error.value = null
+
+  try {
+    // Simulación de latencia de red
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    
+    const response = await fetch('https://api.green-sys.es/payment', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        sale_id: props.slug,
+        cardNumber: cardNumber.value.replace(/\s+/g, ''),
+        expiry: expiry.value,
+        cvc: cvc.value,
+        cardholderName: cardholderName.value
+      })
+    })
+
+    if (!response.ok) {
+      const data = await response.json()
+      throw new Error(data.error || 'Error procesando el pago')
+    }
+
+    // Si todo OK, redirigir
+    if (paymentData.value?.metadata) {
+      window.location.href = paymentData.value.metadata
+    } else {
+      router.push('/payment-success')
+    }
+  } catch (e) {
+    error.value = 'Error procesando el pago: ' + (e instanceof Error ? e.message : 'Error desconocido')
+    isLoading.value = false
   }
 }
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-100">
-    <div class="max-w-7xl mx-auto px-4 py-6">
-      <div class="grid grid-cols-12 gap-6">
-        <!-- Productos -->
-        <div class="col-span-8">
-          <div class="bg-white rounded-lg shadow p-6">
-            <!-- Búsqueda y filtros -->
-            <div class="mb-6 space-y-4">
-              <input
-                v-model="searchQuery"
-                type="text"
-                class="input-field"
-                placeholder="Buscar productos..."
-              />
-              
-              <div class="flex flex-wrap gap-2">
-                <button
-                  @click="selectedCategory = null"
-                  :class="[
-                    'px-3 py-1 rounded-full text-sm font-medium',
-                    !selectedCategory 
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                  ]"
-                >
-                  Todos
-                </button>
-                <button
-                  v-for="category in categories"
-                  :key="category"
-                  @click="selectedCategory = category"
-                  :class="[
-                    'px-3 py-1 rounded-full text-sm font-medium',
-                    selectedCategory === category
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-                  ]"
-                >
-                  {{ category }}
-                </button>
-              </div>
-            </div>
-
-            <!-- Grid de productos -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              <button
-                v-for="product in filteredProducts"
-                :key="product.id"
-                @click="addToCart(product)"
-                class="p-4 border rounded-lg hover:shadow-md transition-shadow text-left"
-                :class="[
-                  product.stock > 0
-                    ? 'border-gray-200 hover:border-emerald-500'
-                    : 'border-red-200 bg-red-50 cursor-not-allowed'
-                ]"
-              >
-                <div v-if="product.image" class="aspect-square mb-2">
-                  <img 
-                    :src="product.image" 
-                    :alt="product.name"
-                    class="w-full h-full object-cover rounded"
-                  />
-                </div>
-                <div v-else class="aspect-square mb-2 bg-gray-100 rounded flex items-center justify-center">
-                  <span class="text-gray-400">Sin imagen</span>
-                </div>
-                
-                <h3 class="font-medium text-gray-900">{{ product.name }}</h3>
-                <div class="mt-1 text-sm text-gray-500">{{ product.category }}</div>
-                <div class="mt-2 font-bold text-emerald-600">{{ product.price.toFixed(2) }}€</div>
-                <div class="mt-1 text-sm" :class="[
-                  product.stock > 0 ? 'text-emerald-600' : 'text-red-600'
-                ]">
-                  Stock: {{ product.stock }}
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Carrito -->
-        <div class="col-span-4">
-          <div class="bg-white rounded-lg shadow p-6">
-            <h2 class="text-lg font-medium text-gray-900 mb-4">Carrito</h2>
-
-            <div v-if="tpvStore.cart.length === 0" class="text-center py-8 text-gray-500">
-              El carrito está vacío
-            </div>
-
-            <div v-else class="space-y-4">
-              <!-- Items del carrito -->
-              <div v-for="item in tpvStore.cart" :key="item.product.id" class="flex items-center space-x-4">
-                <div class="flex-1">
-                  <div class="font-medium text-gray-900">{{ item.product.name }}</div>
-                  <div class="text-sm text-gray-500">{{ item.product.price.toFixed(2) }}€</div>
-                </div>
-
-                <div class="flex items-center space-x-2">
-                  <button
-                    @click="updateQuantity(item.product.id, item.quantity - 1)"
-                    class="p-1 rounded-full hover:bg-gray-100"
-                  >
-                    <Minus class="h-4 w-4 text-gray-500" />
-                  </button>
-                  
-                  <span class="w-8 text-center">{{ item.quantity }}</span>
-                  
-                  <button
-                    @click="updateQuantity(item.product.id, item.quantity + 1)"
-                    class="p-1 rounded-full hover:bg-gray-100"
-                  >
-                    <Plus class="h-4 w-4 text-gray-500" />
-                  </button>
-
-                  <button
-                    @click="removeFromCart(item.product.id)"
-                    class="p-1 rounded-full hover:bg-red-100"
-                  >
-                    <Trash2 class="h-4 w-4 text-red-500" />
-                  </button>
-                </div>
-              </div>
-
-              <!-- Total -->
-              <div class="border-t pt-4 mt-4">
-                <div class="flex justify-between items-center text-lg font-bold">
-                  <span>Total</span>
-                  <span class="text-emerald-600">{{ tpvStore.getCartTotal().toFixed(2) }}€</span>
-                </div>
-              </div>
-
-              <!-- Botones de acción -->
-              <div class="space-y-2">
-                <button
-                  @click="showPaymentModal = true"
-                  class="btn-primary w-full"
-                >
-                  Procesar pago
-                </button>
-                <button
-                  @click="tpvStore.clearCart()"
-                  class="btn-secondary w-full"
-                >
-                  Limpiar carrito
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+  <div class="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <!-- Aviso de sandbox -->
+    <div v-if="paymentData?.sandbox" class="max-w-xl mx-auto mb-6">
+      <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+        <span class="text-yellow-800 text-sm font-medium">
+          Modo Sandbox - Pagos de prueba <br>
+          Este pago se validará pero no se procesará en el panel de administrador
+        </span>
       </div>
     </div>
 
-    <!-- Modal de pago -->
-    <div v-if="showPaymentModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-      <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <h2 class="text-xl font-bold text-gray-900 mb-6">Seleccionar método de pago</h2>
+    <div class="max-w-xl mx-auto">
+      <!-- Header -->
+      <div class="card mb-6">
+        <div class="flex justify-between items-center mb-4">
+          <h2 class="text-xl font-medium text-gray-900">
+            <template v-if="paymentData">
+              {{ paymentData.description }}
+            </template>
+            <template v-else>
+              <div class="animate-pulse bg-gray-200 h-6 w-48 rounded"></div>
+            </template>
+          </h2>
+          <ShieldCheck class="h-6 w-6 text-emerald-500" />
+        </div>
+        <div v-if="paymentData" class="text-3xl font-bold text-emerald-600">
+          {{ paymentData.amount.toFixed(2) }}€
+        </div>
+      </div>
 
-        <div class="space-y-4">
-          <button
-            @click="processSale('card')"
-            class="btn-payment"
-          >
-            <CreditCard class="h-6 w-6" />
-            <span>Tarjeta</span>
-          </button>
-
-          <button
-            @click="processSale('cash')"
-            class="btn-payment"
-          >
-            <Banknote class="h-6 w-6" />
-            <span>Efectivo</span>
-          </button>
-
-          <button
-            @click="processSale('bizum')"
-            class="btn-payment"
-          >
-            <QrCode class="h-6 w-6" />
-            <span>Bizum</span>
-          </button>
+      <!-- Formulario de pago -->
+      <div class="card">
+        <!-- Error general -->
+        <div v-if="error" class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div class="flex items-center space-x-2">
+            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+            <span class="text-red-800">{{ error }}</span>
+          </div>
         </div>
 
-        <div class="mt-6 flex justify-end space-x-3">
+        <form v-if="!error" @submit.prevent="handleSubmit" class="space-y-4">
+          <!-- Número de tarjeta -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Número de tarjeta
+            </label>
+            <div class="relative">
+              <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <CreditCard class="h-5 w-5 text-gray-400" />
+              </div>
+              <input
+                v-model="cardNumber"
+                @input="formatCardNumber"
+                type="text"
+                maxlength="19"
+                class="input-field pl-10"
+                :class="{'bg-gray-50 cursor-not-allowed': isDisabled}"
+                placeholder="4242 4242 4242 4242"
+                required
+                :disabled="isDisabled"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <!-- Fecha de expiración -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                Fecha de expiración
+              </label>
+              <input
+                v-model="expiry"
+                @input="formatExpiry"
+                type="text"
+                maxlength="5"
+                class="input-field"
+                :class="{'bg-gray-50 cursor-not-allowed': isDisabled}"
+                placeholder="MM/YY"
+                required
+                :disabled="isDisabled"
+              />
+            </div>
+            <!-- CVC -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                CVC
+              </label>
+              <input
+                v-model="cvc"
+                type="text"
+                maxlength="3"
+                class="input-field"
+                :class="{'bg-gray-50 cursor-not-allowed': isDisabled}"
+                placeholder="123"
+                required
+                :disabled="isDisabled"
+              />
+            </div>
+          </div>
+
+          <!-- Titular -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Titular de la tarjeta
+            </label>
+            <input
+              v-model="cardholderName"
+              type="text"
+              class="input-field"
+              :class="{'bg-gray-50 cursor-not-allowed': isDisabled}"
+              placeholder="NOMBRE APELLIDOS"
+              required
+              :disabled="isDisabled"
+            />
+          </div>
+
+          <!-- Botón de pago -->
           <button
-            @click="showPaymentModal = false"
-            class="btn-secondary"
+            type="submit"
+            class="btn-primary w-full flex items-center justify-center space-x-2"
+            :disabled="isLoading || isDisabled"
           >
-            Cancelar
+            <template v-if="isLoading">
+              <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span>Procesando...</span>
+            </template>
+            <span v-else>
+              {{ paymentData ? `Pagar ${paymentData.amount.toFixed(2)}€` : 'Pago no disponible' }}
+            </span>
           </button>
-        </div>
+
+          <!-- Footer -->
+          <div class="flex items-center justify-center space-x-2 text-sm text-gray-500 mt-4">
+            <ShieldCheck class="h-4 w-4" />
+            <span>Pago seguro con cifrado SSL</span>
+          </div>
+        </form>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.input-field {
-  @apply block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500;
-}
-
-.btn-primary {
-  @apply inline-flex justify-center rounded-md border border-transparent bg-emerald-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-emerald-400 disabled:cursor-not-allowed;
-}
-
-.btn-secondary {
-  @apply inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed;
-}
-
-.btn-payment {
-  @apply flex items-center space-x-3 w-full p-4 rounded-lg border border-gray-300 hover:border-emerald-500 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2;
-}
-</style> 

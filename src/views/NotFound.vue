@@ -1,43 +1,29 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { AlertCircle } from 'lucide-vue-next'
 
 const router = useRouter()
-
-const goBack = () => {
-  router.back()
-}
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-100 flex flex-col items-center justify-center px-4">
-    <div class="max-w-md w-full text-center">
-      <h1 class="text-9xl font-bold text-emerald-600">404</h1>
-      <h2 class="mt-4 text-3xl font-bold text-gray-900">Página no encontrada</h2>
-      <p class="mt-4 text-lg text-gray-600">Lo sentimos, la página que estás buscando no existe o ha sido movida.</p>
-      <div class="mt-8 space-x-4">
+  <div class="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div class="max-w-md w-full space-y-8 text-center">
+      <AlertCircle class="mx-auto h-24 w-24 text-emerald-500" />
+      
+      <div>
+        <h2 class="text-4xl font-bold text-gray-900">404</h2>
+        <p class="mt-2 text-lg text-gray-600">Página no encontrada</p>
+        <p class="mt-1 text-gray-500">La página que buscas no existe o ha sido movida.</p>
+      </div>
+
+      <div>
         <button 
-          @click="goBack"
-          class="btn-secondary"
+          @click="router.push('/')"
+          class="btn-primary inline-flex items-center space-x-2"
         >
-          Volver atrás
+          <span>Volver al inicio</span>
         </button>
-        <router-link 
-          to="/" 
-          class="btn-primary"
-        >
-          Ir al inicio
-        </router-link>
       </div>
     </div>
   </div>
-</template>
-
-<style scoped>
-.btn-primary {
-  @apply inline-flex justify-center rounded-md border border-transparent bg-emerald-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2;
-}
-
-.btn-secondary {
-  @apply inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2;
-}
-</style> 
+</template> 

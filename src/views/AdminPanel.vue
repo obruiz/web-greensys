@@ -1,18 +1,22 @@
-<template>
-  <div class="min-h-screen bg-gray-100 p-6">
-    <h1 class="text-3xl font-bold text-gray-900">Panel de Administrador</h1>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { LayoutDashboard, Users, TicketCheck, CreditCard, Receipt, RefreshCw } from 'lucide-vue-next'
 import TicketList from '../components/TicketList.vue'
+import CreateTicket from '../components/CreateTicket.vue'
 import StatusLegend from '../components/StatusLegend.vue'
 import { useTicketStore } from '../stores/tickets'
 import { useUsersStore } from '../stores/users'
+import axios from 'axios'
 import toastr from '../toastrConfig'
 import { useStatsStore } from '../stores/stats'
+
+interface Stats {
+  totalClients: string
+  activeTickets: string
+  clientChange: string
+  ticketChange: string
+  revenueChange: string
+}
 
 const activeTab = ref('dashboard')
 const showCreateTicket = ref(false)
@@ -52,7 +56,30 @@ function previousPage() {
   }
 }
 
+const stats = ref([
+  { label: 'Clientes Totales', value: '0', change: '0%' },
+  { label: 'Tickets Activos', value: '0', change: '0%' },
+  { label: 'Ingresos Totales', value: '0€', change: '0%' },
+  { label: 'Comisiones Totales', value: '0€', change: '0%' }
+])
+
+const fetchStats = async () => {
+  try {
+    const response = await axios.get<Stats>('/api/stats')
+    const data = response.data
+    stats.value = [
+      { label: 'Clientes Totales', value: data.totalClients, change: data.clientChange },
+      { label: 'Tickets Activos', value: data.activeTickets, change: data.ticketChange },
+      { label: 'Ingresos Netos', value: '0€', change: data.revenueChange },
+      { label: 'Comisiones Totales', value: '0€', change: '0%' }
+    ]
+  } catch (error) {
+    console.error('Error al obtener las estadísticas:', error)
+  }
+}
+
 onMounted(async () => {
+  await fetchStats()
   if (activeTab.value === 'clients') {
     await loadUsers()
   }
@@ -147,6 +174,7 @@ watch(activeTab, async (newTab) => {
 
 async function loadTickets() {
   const success = await ticketStore.fetchTickets()
+
   if (!success && ticketStore.lastError) {
     toastr.error(ticketStore.lastError.message)
   }
@@ -222,156 +250,188 @@ async function loadTickets() {
                 </div>
               </div>
             </div>
-            <div v-else-if="statsStore.stats" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <div class="card p-6">
-                <h3 class="text-sm font-medium text-gray-500">Clientes Totales</h3>
-                <p class="mt-2 text-3xl font-bold text-gray-900">{{ statsStore.stats.clientesTotales }}</p>
-              </div>
-              <div class="card p-6">
-                <h3 class="text-sm font-medium text-gray-500">Tickets Activos</h3>
-                <p class="mt-2 text-3xl font-bold text-gray-900">{{ statsStore.stats.ticketsActivos }}</p>
-              </div>
-              <div class="card p-6">
-                <h3 class="text-sm font-medium text-gray-500">Ingresos Netos</h3>
-                <p class="mt-2 text-3xl font-bold text-gray-900">{{ statsStore.stats.ingresosNetos }}€</p>
-              </div>
-              <div class="card p-6">
-                <h3 class="text-sm font-medium text-gray-500">Comisiones</h3>
-                <p class="mt-2 text-3xl font-bold text-gray-900">{{ statsStore.stats.comisionesTotales }}€</p>
-                <p class="text-sm text-gray-500">{{ statsStore.stats.comisionesPorcentaje }}</p>
-              </div>
-            </div>
 
-            <!-- Recent Activity -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <!-- Recent Tickets -->
-              <div class="card">
-                <div class="flex justify-between items-center mb-6">
-                  <h2 class="text-lg font-medium text-gray-900">Tickets Recientes</h2>
-                  <button 
-                    @click="loadTickets"
-                    class="btn-secondary flex items-center space-x-2"
-                    :disabled="ticketStore.isLoading"
-                  >
-                    <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': ticketStore.isLoading }" />
-                    <span>Actualizar</span>
-                  </button>
+            <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <!-- Total Clients -->
+              <div class="card p-6">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-sm font-medium text-gray-600">Clientes Totales</p>
+                    <p class="mt-2 text-3xl font-bold text-gray-900">
+                      {{ statsStore.stats?.clientesTotales || 0 }}
+                    </p>
+                  </div>
+                  <div class="p-3 bg-emerald-50 rounded-full">
+                    <Users class="w-6 h-6 text-emerald-500" />
+                  </div>
                 </div>
-                <TicketList 
-                  :tickets="filteredTickets.slice(0, 5)"
-                  :loading="ticketStore.isLoading"
-                />
               </div>
 
-              <!-- Recent Users -->
-              <div class="card">
-                <div class="flex justify-between items-center mb-6">
-                  <h2 class="text-lg font-medium text-gray-900">Usuarios Recientes</h2>
-                  <button 
-                    @click="loadUsers"
-                    class="btn-secondary flex items-center space-x-2"
-                    :disabled="usersStore.isLoading"
-                  >
-                    <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': usersStore.isLoading }" />
-                    <span>Actualizar</span>
-                  </button>
+              <!-- Active Tickets -->
+              <div class="card p-6">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-sm font-medium text-gray-600">Tickets Activos</p>
+                    <p class="mt-2 text-3xl font-bold text-gray-900">
+                      {{ statsStore.stats?.ticketsActivos || 0 }}
+                    </p>
+                  </div>
+                  <div class="p-3 bg-blue-50 rounded-full">
+                    <TicketCheck class="w-6 h-6 text-blue-500" />
+                  </div>
                 </div>
-                <div class="overflow-x-auto">
-                  <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                      <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                      </tr>
-                    </thead>
-                    <tbody v-if="!usersStore.isLoading" class="bg-white divide-y divide-gray-200">
-                      <tr v-for="user in paginatedUsers.slice(0, 5)" :key="user.username">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.username }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                          <span :class="['px-2 py-1 text-xs font-medium rounded-full', getStatusColor(user.status)]">
-                            {{ getStatusText(user.status) }}
-                          </span>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {{ new Date(user.createdAt).toLocaleDateString() }}
-                        </td>
-                      </tr>
-                    </tbody>
-                    <tbody v-else>
-                      <tr v-for="i in 5" :key="i">
-                        <td v-for="j in 3" :key="j" class="px-6 py-4 whitespace-nowrap">
-                          <div class="h-4 bg-gray-200 rounded animate-pulse"></div>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+              </div>
+
+              <!-- Net Income -->
+              <div class="card p-6">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-sm font-medium text-gray-600">Ingresos Netos</p>
+                    <p class="mt-2 text-3xl font-bold text-gray-900">
+                      {{ (statsStore.stats?.ingresosNetos || 0).toFixed(2) }}€
+                    </p>
+                  </div>
+                  <div class="p-3 bg-purple-50 rounded-full">
+                    <CreditCard class="w-6 h-6 text-purple-500" />
+                  </div>
+                </div>
+              </div>
+
+              <!-- Total Commissions -->
+              <div class="card p-6">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <p class="text-sm font-medium text-gray-600">Comisiones Totales</p>
+                    <p class="mt-2 text-3xl font-bold text-gray-900">
+                      {{ (statsStore.stats?.comisionesTotales || 0).toFixed(2) }}€
+                    </p>
+                    <p class="mt-1 text-sm text-gray-500">
+                      {{ statsStore.stats?.comisionesPorcentaje || '0%' }} promedio
+                    </p>
+                  </div>
+                  <div class="p-3 bg-yellow-50 rounded-full">
+                    <Receipt class="w-6 h-6 text-yellow-500" />
+                  </div>
                 </div>
               </div>
             </div>
-          </template>
 
-          <template v-else-if="activeTab === 'clients'">
-            <div class="mb-8">
-              <h2 class="text-2xl font-bold text-gray-900">Gestión de Clientes</h2>
+            <!-- Error State -->
+            <div v-if="statsStore.lastError" class="mb-8 p-4 bg-red-50 text-red-700 rounded-lg">
+              {{ statsStore.lastError.message }}
             </div>
 
             <div class="card">
               <div class="flex justify-between items-center mb-6">
-                <StatusLegend 
-                  :items="userLegend"
-                  :active-filter="activeUserFilter"
-                  @filter="handleUserFilter"
-                />
+                <h2 class="text-lg font-medium text-gray-900">Tickets Recientes</h2>
+                <button 
+                  class="btn-primary" 
+                  @click="activeTab = 'tickets'"
+                >
+                  Ver todos
+                </button>
+              </div>
+              <TicketList :show-all="false" :max-items="4" :filtered-tickets="ticketStore.tickets" />
+            </div>
+          </template>
+
+          <template v-if="activeTab === 'clients'">
+            <div class="mb-8">
+              <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-900">Gestión de Clientes</h2>
                 <button 
                   @click="loadUsers"
                   class="btn-secondary flex items-center space-x-2"
                   :disabled="usersStore.isLoading"
                 >
                   <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': usersStore.isLoading }" />
-                  <span>Actualizar</span>
+                  <span>Recargar</span>
                 </button>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+              <div class="p-4 bg-gray-50">
+                <StatusLegend 
+                  :items="userLegend"
+                  :active-filter="activeUserFilter"
+                  @filter="handleUserFilter"
+                />
               </div>
 
               <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                   <thead class="bg-gray-50">
                     <tr>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empresa</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Usuario
+                      </th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Empresa
+                      </th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Teléfono
+                      </th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Estado
+                      </th>
+                      <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
-                  <tbody v-if="!usersStore.isLoading" class="bg-white divide-y divide-gray-200">
-                    <tr v-for="user in paginatedUsers" :key="user.username">
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.username }}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ user.email }}</td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ user.businessName }}</td>
+                  <tbody class="bg-white divide-y divide-gray-200">
+                    <tr v-for="user in paginatedUsers" :key="user.username" class="hover:bg-gray-50">
                       <td class="px-6 py-4 whitespace-nowrap">
-                        <span :class="['px-2 py-1 text-xs font-medium rounded-full', getStatusColor(user.status)]">
+                        <div class="flex items-center">
+                          <div>
+                            <div class="text-sm font-medium text-gray-900">
+                              {{ user.username }}
+                            </div>
+                            <div class="text-sm text-gray-500">
+                              {{ user.role === 'admin' ? 'Administrador' : 'Cliente' }}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ user.email }}</div>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ user.businessName }}</div>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-900">{{ user.phone }}</div>
+                      </td>
+                      <td class="px-6 py-4 whitespace-nowrap">
+                        <span 
+                          class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                          :class="getStatusColor(user.status)"
+                        >
                           {{ getStatusText(user.status) }}
                         </span>
                       </td>
-                      <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <select 
-                          :value="user.status"
-                          @change="handleStatusChange(user.username, $event.target.value)"
-                          class="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm rounded-md"
-                          :disabled="usersStore.isLoading"
-                        >
-                          <option value="pending">Pendiente</option>
-                          <option value="active">Activo</option>
-                          <option value="inactive">Inactivo</option>
-                        </select>
-                      </td>
-                    </tr>
-                  </tbody>
-                  <tbody v-else>
-                    <tr v-for="i in itemsPerPage" :key="i">
-                      <td v-for="j in 5" :key="j" class="px-6 py-4 whitespace-nowrap">
-                        <div class="h-4 bg-gray-200 rounded animate-pulse"></div>
+                      <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <div class="flex space-x-2">
+                          <select 
+                            v-if="user.role !== 'admin'"
+                            class="input-field text-sm py-1"
+                            :value="user.status"
+                            :disabled="usersStore.isLoading"
+                            @change="(e: Event) => {
+                              const select = e.target as HTMLSelectElement;
+                              const newStatus = select.value as 'pending' | 'active' | 'inactive';
+                              handleStatusChange(user.username, newStatus);
+                            }"
+                          >
+                            <option value="pending">Pendiente</option>
+                            <option value="active">Activo</option>
+                            <option value="inactive">Inactivo</option>
+                          </select>
+                        </div>
                       </td>
                     </tr>
                   </tbody>
@@ -379,56 +439,99 @@ async function loadTickets() {
               </div>
 
               <!-- Paginación -->
-              <div class="flex justify-between items-center mt-4">
-                <div class="text-sm text-gray-700">
-                  Mostrando {{ (currentPage - 1) * itemsPerPage + 1 }} a {{ Math.min(currentPage * itemsPerPage, usersStore.users.length) }} de {{ usersStore.users.length }} resultados
+              <div class="px-6 py-4 flex items-center justify-between border-t border-gray-200">
+                <div class="flex-1 flex justify-between items-center">
+                  <div>
+                    <p class="text-sm text-gray-700">
+                      Mostrando <span class="font-medium">{{ ((currentPage - 1) * itemsPerPage) + 1 }}</span> a <span class="font-medium">{{ Math.min(currentPage * itemsPerPage, usersStore.users.length) }}</span> de <span class="font-medium">{{ usersStore.users.length }}</span> usuarios
+                    </p>
+                  </div>
+                  <div class="flex space-x-2">
+                    <button
+                      @click="previousPage"
+                      :disabled="currentPage === 1"
+                      class="btn-secondary px-3 py-1 text-sm"
+                      :class="{ 'opacity-50 cursor-not-allowed': currentPage === 1 }"
+                    >
+                      Anterior
+                    </button>
+                    <button
+                      @click="nextPage"
+                      :disabled="currentPage >= totalPages"
+                      class="btn-secondary px-3 py-1 text-sm"
+                      :class="{ 'opacity-50 cursor-not-allowed': currentPage >= totalPages }"
+                    >
+                      Siguiente
+                    </button>
+                  </div>
                 </div>
-                <div class="flex space-x-2">
-                  <button 
-                    @click="previousPage"
-                    :disabled="currentPage === 1"
-                    class="btn-secondary"
-                  >
-                    Anterior
-                  </button>
-                  <button 
-                    @click="nextPage"
-                    :disabled="currentPage === totalPages"
-                    class="btn-secondary"
-                  >
-                    Siguiente
-                  </button>
-                </div>
+              </div>
+            </div>
+
+            <!-- Loading overlay -->
+            <div 
+              v-if="usersStore.isLoading" 
+              class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+            >
+              <div class="bg-white p-4 rounded-lg">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mx-auto"></div>
+                <p class="mt-2 text-sm text-gray-600">Cargando...</p>
               </div>
             </div>
           </template>
 
-          <template v-else-if="activeTab === 'tickets'">
+          <template v-if="activeTab === 'tickets'">
             <div class="mb-8">
-              <h2 class="text-2xl font-bold text-gray-900">Gestión de Tickets</h2>
+              <div class="flex justify-between items-center">
+                <h2 class="text-2xl font-bold text-gray-900">Gestión de Tickets</h2>
+                <div class="flex items-center space-x-2">
+                  <button 
+                    @click="loadTickets"
+                    class="btn-secondary flex items-center space-x-2"
+                    :disabled="ticketStore.isLoading"
+                  >
+                    <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': ticketStore.isLoading }" />
+                    <span>Recargar</span>
+                  </button>
+                  <button 
+                    @click="showCreateTicket = true"
+                    class="btn-primary flex items-center space-x-2"
+                  >
+                    <span>Crear Ticket</span>
+                  </button>
+                </div>
+              </div>
             </div>
-
             <div class="card">
-              <div class="flex justify-between items-center mb-6">
+              <div class="mb-4 p-3 bg-gray-50 rounded-lg">
                 <StatusLegend 
                   :items="ticketLegend"
                   :active-filter="activeTicketFilter"
                   @filter="handleTicketFilter"
                 />
-                <button 
-                  @click="loadTickets"
-                  class="btn-secondary flex items-center space-x-2"
-                  :disabled="ticketStore.isLoading"
-                >
-                  <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': ticketStore.isLoading }" />
-                  <span>Actualizar</span>
-                </button>
               </div>
+              <TicketList :show-all="true" :filtered-tickets="filteredTickets" />
+            </div>
 
-              <TicketList 
-                :tickets="filteredTickets"
-                :loading="ticketStore.isLoading"
-              />
+            <!-- Modal de Crear Ticket -->
+            <div v-if="showCreateTicket" 
+                 class="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center z-50">
+              <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+                <div class="flex justify-between items-center mb-4">
+                  <h3 class="text-lg font-medium text-gray-900">Crear Nuevo Ticket</h3>
+                  <button 
+                    @click="showCreateTicket = false"
+                    class="text-gray-400 hover:text-gray-500"
+                  >
+                    <span class="sr-only">Cerrar</span>
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                
+                <CreateTicket @created="showCreateTicket = false" />
+              </div>
             </div>
           </template>
         </div>
@@ -436,18 +539,3 @@ async function loadTickets() {
     </div>
   </section>
 </template>
-
-<style scoped>
-.card {
-  @apply bg-white rounded-lg shadow-md p-6;
-}
-
-.btn-primary {
-  @apply inline-flex justify-center rounded-md border border-transparent bg-emerald-600 py-2 px-4 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-emerald-400 disabled:cursor-not-allowed;
-}
-
-.btn-secondary {
-  @apply inline-flex justify-center rounded-md border border-gray-300 bg-white py-2 px-4 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed;
-}
-</style> // TODO
-/
