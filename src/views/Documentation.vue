@@ -9,6 +9,11 @@ const testApiKey = ref('')
 const testResponse = ref('')
 const isLoading = ref(false)
 const payloadError = ref('')
+const selectedEnvironment = ref('sandbox')
+const baseUrls = {
+  sandbox: 'https://sandbox.green-sys.es/sales',
+  production: 'https://api.green-sys.es/sales'
+}
 const payloadText = ref(JSON.stringify({
   amount: 29.99,
   currency: "EUR",
@@ -49,7 +54,7 @@ const runTest = async () => {
     const payload = JSON.parse(payloadText.value)
     console.log('Payload parseado:', payload)
     
-    const response = await fetch('https://sandbox.green-sys.es/sales', {
+    const response = await fetch(baseUrls[selectedEnvironment.value], {
       method: 'POST',
       headers: {
         'x-api-key': `${testApiKey.value}`,
@@ -393,12 +398,25 @@ const runTest = async () => {
         <div class="card p-6 space-y-4">
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">
-              URL (URL de prueba - cambiar a api.green-sys.es en producción)
+              Entorno
+            </label>
+            <select 
+              v-model="selectedEnvironment"
+              class="input-field text-base"
+            >
+              <option value="sandbox">Sandbox (Pruebas)</option>
+              <option value="production">Producción</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              URL ({{ selectedEnvironment === 'sandbox' ? 'Entorno de pruebas' : 'Entorno de producción' }})
             </label>
             <input 
               type="text"
               class="input-field bg-gray-100 cursor-not-allowed text-base"
-              value="https://sandbox.green-sys.es/sales"
+              :value="baseUrls[selectedEnvironment]"
               disabled
             />
           </div>
