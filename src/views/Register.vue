@@ -26,35 +26,33 @@ const formData = ref({
 
 // Función para generar datos de prueba aleatorios
 const generateTestData = () => {
-  const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0')
-  const randomNIF = Math.floor(Math.random() * 10000000).toString().padStart(8, '0')
-  const randomIBAN = Math.floor(Math.random() * 10000000000).toString().padStart(22, '0')
-  
   return {
-    username: `test_user${randomNum}`,
-    password: 'Test123!',
-    email: `test${randomNum}@greensys.es`,
-    phone: `+34666${randomNum}${randomNum}`, // Número español válido
-    businessName: `Test Business ${randomNum} SL`,
-    legalName: `Test Legal Name ${randomNum} Sociedad Limitada`,
+    username: 'greensys_demo',
+    password: 'Demo2024!',
+    email: 'demo@greensys.es',
+    phone: '+34666777888',
+    businessName: 'GreenSys Demo SL',
+    legalName: 'GreenSys Demonstración Sociedad Limitada',
     businessType: 'ecommerce',
-    website: `https://test${randomNum}.greensys.es`,
+    website: 'https://demo.greensys.es',
     country: 'España',
-    taxId: `B${randomNIF}`, // CIF válido formato español
+    taxId: 'B12345678',
     bankName: 'Banco Santander',
-    iban: `ES${randomIBAN}`, // IBAN español válido
-    swift: `BSCHESM${randomNum.substring(0, 3)}` // SWIFT válido del Santander
+    iban: 'ES1234567890123456789012',
+    swift: 'BSCHESMM123'
   }
 }
 
-// Solo en desarrollo, rellenar automáticamente los campos
+const fillDemoData = () => {
+  const testData = generateTestData()
+  Object.keys(testData).forEach(key => {
+    formData.value[key] = testData[key]
+  })
+}
+
+// Eliminamos el auto-rellenado en desarrollo
 onMounted(() => {
-  if (process.env.NODE_ENV === 'development') {
-    const testData = generateTestData()
-    Object.keys(testData).forEach(key => {
-      formData.value[key] = testData[key]
-    })
-  }
+  // Dejamos el componente vacío por si necesitamos añadir otra lógica después
 })
 
 const validateForm = () => {
@@ -304,6 +302,13 @@ const handleSubmit = async () => {
           >
             <span v-if="authStore.isLoading">Creando cuenta...</span>
             <span v-else>Crear cuenta</span>
+          </button>
+          <button 
+            type="button"
+            @click="fillDemoData"
+            class="mt-4 w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+          >
+            <span>Rellenar datos de demostración</span>
           </button>
           <div class="text-center">
             <router-link to="/login" class="text-emerald-600 hover:text-emerald-500">

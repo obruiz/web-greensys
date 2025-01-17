@@ -13,6 +13,11 @@ const username = ref('')
 const password = ref('')
 const showRegisteredMessage = ref(false)
 
+const fillDemoData = () => {
+  username.value = 'greensys_demo'
+  password.value = 'Demo2024!'
+}
+
 onMounted(() => {
   if (route.query.registered === 'true') {
     showRegisteredMessage.value = true
@@ -126,6 +131,13 @@ const handleSubmit = async () => {
               >
                 <span v-if="authStore.isLoading">Iniciando sesión...</span>
                 <span v-else>Iniciar sesión</span>
+              </button>
+              <button 
+                type="button"
+                @click="fillDemoData"
+                class="mt-4 w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors flex items-center justify-center gap-2"
+              >
+                <span>Rellenar datos de demostración</span>
               </button>
             </form>
             <div class="mt-4 text-center">
