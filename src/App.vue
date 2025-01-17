@@ -46,6 +46,7 @@ const handleLogout = () => {
               <router-link 
                 to="/profile" 
                 class="btn-secondary"
+                v-if="!authStore.isAdmin"
               >
                 Mi Perfil
               </router-link>
