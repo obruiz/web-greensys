@@ -1,4 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import Home from '../views/Home.vue'
+import Login from '../views/Login.vue'
+import Register from '../views/Register.vue'
+import AdminPanel from '../views/AdminPanel.vue'
+import ClientPanel from '../views/ClientPanel.vue'
+import Payment from '../views/Payment.vue'
+import Tpv from '../views/Tpv.vue'
+import PaymentSuccess from '../views/PaymentSuccess.vue'
+import NotFound from '../views/NotFound.vue'
 import { useAuthStore } from '../stores/auth'
 
 const router = createRouter({
@@ -7,88 +16,76 @@ const router = createRouter({
     {
       path: '/',
       name: 'home',
-      component: () => import('../views/Home.vue')
+      component: Home
     },
     {
       path: '/login',
       name: 'login',
-      component: () => import('../views/Login.vue'),
-      meta: { requiresGuest: true }
+      component: Login
     },
     {
       path: '/register',
       name: 'register',
-      component: () => import('../views/Register.vue'),
-      meta: { requiresGuest: true }
-    },
-    {
-      path: '/profile',
-      name: 'profile',
-      component: () => import('../views/Profile.vue'),
-      meta: { requiresAuth: true }
+      component: Register
     },
     {
       path: '/admin',
       name: 'admin',
-      component: () => import('../views/AdminPanel.vue'),
+      component: AdminPanel,
       meta: { requiresAuth: true, requiresAdmin: true }
     },
     {
       path: '/client',
       name: 'client',
-      component: () => import('../views/ClientPanel.vue'),
-      meta: { requiresAuth: true, requiresClient: true }
-    },
-    // Redirecciones
-    {
-      path: '/dashboard',
-      redirect: to => {
-        const authStore = useAuthStore()
-        return authStore.user?.role === 'admin' ? '/admin' : '/client'
-      },
+      component: ClientPanel,
       meta: { requiresAuth: true }
     },
-    // Ruta 404
+    {
+      path: '/payment',
+      name: 'payment',
+      component: Payment,
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/doc',
+      name: 'documentation',
+      component: () => import('../views/Documentation.vue')
+    },
+    {
+      path: '/tpv/:slug?',
+      name: 'tpv',
+      component: Tpv,
+      props: true
+    },
+    {
+      path: '/payment-success',
+      name: 'payment-success',
+      component: PaymentSuccess
+    },
+    {
+      path: '/profile',
+      name: 'Profile',
+      component: () => import('../views/Profile.vue'),
+      meta: { requiresAuth: true }
+    },
     {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
-      component: () => import('../views/NotFound.vue')
+      component: NotFound
     }
   ]
 })
 
-// Guardia de navegación global
-router.beforeEach(async (to, from) => {
+router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
-
-  // Verificar si la ruta requiere autenticación
+  
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
-    return {
-      name: 'login',
-      query: { redirect: to.fullPath }
-    }
-  }
-
-  // Verificar si la ruta requiere ser invitado (no autenticado)
-  if (to.meta.requiresGuest && authStore.isAuthenticated) {
-    return {
-      name: 'dashboard'
-    }
-  }
-
-  // Verificar si la ruta requiere rol de administrador
-  if (to.meta.requiresAdmin && authStore.user?.role !== 'admin') {
-    return {
-      name: 'not-found'
-    }
-  }
-
-  // Verificar si la ruta requiere rol de cliente
-  if (to.meta.requiresClient && authStore.user?.role !== 'client') {
-    return {
-      name: 'not-found'
-    }
+    next('/login')
+  } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    next('/client')
+  } else {
+    next()
   }
 })
 
-export default router 
+export default router
