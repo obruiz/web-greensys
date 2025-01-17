@@ -46,89 +46,89 @@ const handleDownload = async (id: number) => {
 </script>
 
 <template>
-  <div v-if="invoiceStore.isLoading" class="text-center py-8">
-    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mx-auto"></div>
-    <p class="mt-2 text-sm text-gray-500">Cargando facturas...</p>
-  </div>
+  <div>
+    <div v-if="invoiceStore.isLoading" class="text-center py-8">
+      <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500 mx-auto"></div>
+      <p class="mt-2 text-sm text-gray-500">Cargando facturas...</p>
+    </div>
 
-  <div v-else-if="invoiceStore.lastError" class="p-4 bg-red-50 text-red-700 rounded-lg">
-    {{ invoiceStore.lastError.message }}
-  </div>
+    <div v-else-if="invoiceStore.lastError" class="p-4 bg-red-50 text-red-700 rounded-lg">
+      {{ invoiceStore.lastError.message }}
+    </div>
 
-  <div v-else-if="invoiceStore.invoices.length === 0" class="text-center py-8">
-    <h3 class="text-sm font-medium text-gray-900">No hay facturas</h3>
-    <p class="mt-1 text-sm text-gray-500">
-      No se han encontrado facturas en tu cuenta.
-    </p>
-  </div>
+    <div v-else-if="invoiceStore.invoices.length === 0" class="text-center py-8 text-gray-500">
+      <p class="text-lg">No hay facturas disponibles</p>
+      <p class="text-sm mt-2">Las facturas aparecerán aquí cuando realices transacciones.</p>
+    </div>
 
-  <div v-else class="overflow-x-auto">
-    <table class="min-w-full divide-y divide-gray-200">
-      <thead class="bg-gray-50">
-        <tr>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Código
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Fecha
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Cliente
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Base Imponible
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            IVA
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Total
-          </th>
-          <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-            Estado
-          </th>
-          <th scope="col" class="relative px-6 py-3">
-            <span class="sr-only">Acciones</span>
-          </th>
-        </tr>
-      </thead>
-      <tbody class="bg-white divide-y divide-gray-200">
-        <tr v-for="invoice in invoiceStore.invoices" :key="invoice.idfactura">
-          <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-            {{ invoice.codigo }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            {{ formatDate(invoice.fecha) }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-            {{ invoice.nombrecliente }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ formatAmount(invoice.neto) }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ formatAmount(invoice.totaliva) }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-            {{ formatAmount(invoice.total) }}
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap">
-            <span :class="['px-2 inline-flex text-xs leading-5 font-semibold rounded-full', getStatusColor(invoice.pagada, invoice.vencida)]">
-              {{ getStatusText(invoice.pagada, invoice.vencida) }}
-            </span>
-          </td>
-          <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-            <button 
-              class="text-emerald-600 hover:text-emerald-900 inline-flex items-center space-x-1"
-              @click="handleDownload(invoice.idfactura)"
-              :disabled="downloadingInvoiceId === invoice.idfactura"
-            >
-              <Download class="h-4 w-4" :class="{ 'animate-spin': downloadingInvoiceId === invoice.idfactura }" />
-              <span>{{ downloadingInvoiceId === invoice.idfactura ? 'Descargando...' : 'Descargar' }}</span>
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-gray-200">
+        <thead class="bg-gray-50">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Código
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Fecha
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Cliente
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Base Imponible
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              IVA
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Total
+            </th>
+            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Estado
+            </th>
+            <th scope="col" class="relative px-6 py-3">
+              <span class="sr-only">Acciones</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200">
+          <tr v-for="invoice in invoiceStore.invoices" :key="invoice.idfactura">
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+              {{ invoice.codigo }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ formatDate(invoice.fecha) }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+              {{ invoice.nombrecliente }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              {{ formatAmount(invoice.neto) }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              {{ formatAmount(invoice.totaliva) }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+              {{ formatAmount(invoice.total) }}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap">
+              <span :class="['px-2 inline-flex text-xs leading-5 font-semibold rounded-full', getStatusColor(invoice.pagada, invoice.vencida)]">
+                {{ getStatusText(invoice.pagada, invoice.vencida) }}
+              </span>
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+              <button 
+                class="text-emerald-600 hover:text-emerald-900 inline-flex items-center space-x-1"
+                @click="handleDownload(invoice.idfactura)"
+                :disabled="downloadingInvoiceId === invoice.idfactura"
+              >
+                <Download class="h-4 w-4" :class="{ 'animate-spin': downloadingInvoiceId === invoice.idfactura }" />
+                <span>{{ downloadingInvoiceId === invoice.idfactura ? 'Descargando...' : 'Descargar' }}</span>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template> 
