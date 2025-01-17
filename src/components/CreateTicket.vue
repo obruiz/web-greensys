@@ -46,7 +46,8 @@ const handleSubmit = async () => {
 
   const success = await ticketStore.createTicket({
     title: title.value,
-    description: description.value
+    description: description.value,
+    ...(isAdmin.value && selectedUser.value && { userId: selectedUser.value })
   })
 
   if (success) {
